@@ -24,7 +24,7 @@ const Annotations = (() => {
   function init(map, onSaveCallback) {
     mapRef  = map;
     onSave  = onSaveCallback;
-    mapLayerGroup = L.layerGroup().addTo(map);
+    mapLayerGroup = L.layerGroup().addTo(mapRef);
 
     map.on('click', _onMapClick);
     map.on('mousemove', _onMouseMove);

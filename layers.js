@@ -55,8 +55,8 @@ const Layers = (() => {
     LAYER_DEFS[def.id]    = def;
     allPoints[def.id]     = [];
     visible[def.id]       = true;
-    leafletGroups[def.id] = L.layerGroup().addTo(map);
-    labelGroups[def.id]   = L.layerGroup().addTo(map);
+    leafletGroups[def.id] = L.layerGroup().addTo(mapRef);
+    labelGroups[def.id]   = L.layerGroup().addTo(mapRef);
   }
 
   // ── GETTERS ──────────────────────────────────────────────────────────────────

@@ -51,7 +51,7 @@ const ParcelsLayer = (() => {
     geojsonLayer = L.geoJSON(PARCELS_GEOJSON, {
       style:         () => ({...STYLE_DEFAULT}),
       onEachFeature: _onEachFeature,
-    }).addTo(map);
+    }).addTo(mapRef);
   }
 
   function _onEachFeature(feature, layer) {
