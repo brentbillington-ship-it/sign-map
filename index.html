@@ -215,7 +215,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 #coords-display{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace;letter-spacing:0.04em;}
 
 /* ── LOCATION BTN ── */
-#location-btn{position:absolute;bottom:30px;right:10px;z-index:999;width:32px;height:32px;border-radius:4px;background:var(--panel);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:all 0.12s;box-shadow:0 2px 8px rgba(0,0,0,0.4);}
+#location-btn{position:absolute;top:10px;right:10px;z-index:999;width:32px;height:32px;border-radius:4px;background:var(--panel);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:all 0.12s;box-shadow:0 2px 8px rgba(0,0,0,0.4);}
 #location-btn:hover{background:var(--teal);color:#fff;}
 #location-btn.active{background:#1a4a7a;border-color:#4da6ff;color:#4da6ff;}
 
@@ -675,7 +675,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     minZoom: CONFIG.MIN_ZOOM, maxZoom: CONFIG.MAX_ZOOM,
     zoomControl: true,
   });
-  map.getContainer().style.cursor = 'grab';
+  map.getContainer().style.cursor = 'crosshair';
 
   // Imperial-only scale
   L.control.scale({ imperial:true, metric:false, position:'bottomright' }).addTo(map);
@@ -766,7 +766,6 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 
     Sync.startRefresh(data => {
       Layers.loadFromSheets(data.points || {});
-      Points.renderAll();
       if (data.annotations) Annotations.loadFromSheets(data.annotations);
       updateToolbarLayer();
       setSyncStatus('saved');
