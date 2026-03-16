@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chaka Signs Map</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="parcels.js"></script>
+
+<style>
+:root {
+  --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3;
+  --muted:#8b949e; --accent:#68949E; --teal:#115E6B; --navy:#1C355E; --mint:#B7CECD;
+  --panel-w:284px; --toolbar-h:44px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* ── DRAWING TOOLBAR ── */
+#draw-toolbar {
+  height:var(--toolbar-h); background:var(--panel); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; gap:4px; padding:0 12px;
+  position:relative; z-index:1100; flex-shrink:0;
+}
+#draw-toolbar .toolbar-group { display:flex; align-items:center; gap:2px; padding:0 8px; border-right:1px solid var(--border); }
+#draw-toolbar .toolbar-group:last-child { border-right:none; }
+.toolbar-btn {
+  display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:5px;
+  border:1px solid transparent; background:transparent; color:var(--muted);
+  font-family:'DM Mono',monospace; font-size:11px; cursor:pointer; transition:all 0.12s;
+  white-space:nowrap;
+}
+.toolbar-btn:hover { background:rgba(255,255,255,0.06); color:var(--text); border-color:var(--border); }
+.toolbar-btn.active { background:rgba(104,148,158,0.2); color:var(--accent); border-color:var(--accent); }
+.toolbar-btn svg { flex-shrink:0; }
+#toolbar-version { position:absolute; right:12px; font-size:9px; color:var(--muted); letter-spacing:0.1em; }
+
+/* ── MAIN AREA ── */
+#main { display:flex; flex:1; overflow:hidden; min-height:0; height:calc(100vh - var(--toolbar-h)); }
+
+/* ── SIDEBAR ── */
+#sidebar { width:var(--panel-w); min-width:var(--panel-w); height:100%; background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:1000; overflow:hidden; }
+#sidebar-header { padding:11px 14px; border-bottom:1px solid var(--border); background:var(--navy); }
+#sidebar-header h1 { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; color:#fff; letter-spacing:0.06em; text-transform:uppercase; }
+#sidebar-header p { font-size:10px; color:var(--mint); margin-top:1px; }
+
+/* ── SEARCH ── */
+#search-wrap { padding:8px 12px; border-bottom:1px solid var(--border); position:relative; }
+#search-input { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'DM Mono',monospace; font-size:11px; padding:6px 28px 6px 8px; border-radius:5px; outline:none; }
+#search-input:focus { border-color:var(--accent); }
+#search-icon { position:absolute; right:20px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; font-size:13px; }
+#search-results { position:absolute; left:12px; right:12px; top:100%; background:var(--panel); border:1px solid var(--border); border-radius:5px; z-index:2000; max-height:220px; overflow-y:auto; display:none; box-shadow:0 4px 16px rgba(0,0,0,0.5); }
+.sr-item { padding:7px 10px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:7px; color:var(--text); }
+.sr-item:hover { background:rgba(104,148,158,0.12); }
+.sr-icon { flex-shrink:0; font-size:13px; }
+.sr-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sr-loading,.sr-empty { color:var(--muted); cursor:default; font-size:10px; }
+
+/* ── PRESENCE ── */
+#presence-bar { padding:5px 12px; border-bottom:1px solid var(--border); background:rgba(0,0,0,0.3); display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-height:26px; }
+#presence-label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; flex-shrink:0; }
+.presence-pill { display:inline-flex; align-items:center; gap:4px; background:rgba(104,148,158,0.1); border:1px solid rgba(104,148,158,0.2); border-radius:20px; padding:2px 7px; font-size:10px; color:var(--mint); }
+.presence-dot { width:6px; height:6px; border-radius:50%; background:#5cb85c; flex-shrink:0; animation:pulse 2s infinite; }
+.presence-dot.me { background:var(--accent); animation:none; }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+
+/* ── USER BAR ── */
+#user-bar { padding:4px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--bg); }
+#user-bar-name { font-size:10px; color:var(--muted); }
+#user-bar-name span { color:var(--mint); }
+#logout-btn { font-size:10px; color:var(--muted); background:none; border:none; cursor:pointer; text-decoration:underline; font-family:'DM Mono',monospace; }
+
+/* ── ACTIVE LAYER ── */
+#active-layer-bar { padding:7px 12px; border-bottom:1px solid var(--border); background:rgba(104,148,158,0.05); }
+#active-layer-bar label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; display:block; margin-bottom:4px; }
+#active-layer-select { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'DM Mono',monospace; font-size:11px; padding:5px 7px; border-radius:4px; outline:none; }
+#active-layer-select:focus { border-color:var(--accent); }
+
+/* ── BASEMAP ROW ── */
+#basemap-row { display:flex; align-items:center; gap:10px; padding:5px 12px; font-size:10px; color:var(--muted); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+#basemap-row label { cursor:pointer; display:flex; align-items:center; gap:5px; }
+
+/* ── LAYERS LIST ── */
+#layers-section { flex:1; overflow-y:auto; padding:8px 0; }
+#layers-section::-webkit-scrollbar{width:4px;}
+#layers-section::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.section-label { font-size:9px; letter-spacing:0.13em; text-transform:uppercase; color:var(--muted); padding:4px 12px 4px; }
+.layer-row { display:flex; align-items:center; gap:8px; padding:5px 12px; cursor:pointer; transition:background 0.1s; user-select:none; }
+.layer-row:hover{background:rgba(255,255,255,0.04);}
+.layer-row.hidden-layer{opacity:0.35;}
+.layer-icon{width:14px;height:14px;flex-shrink:0;border-radius:2px;border:1.5px solid rgba(255,255,255,0.16);}
+.layer-icon.circle{border-radius:50%;}
+.layer-name{font-size:11px;flex:1;color:var(--text);}
+.layer-toggle{width:14px;height:14px;border:1px solid var(--border);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
+.layer-toggle:hover{border-color:var(--accent);}
+.layer-toggle.checked{background:var(--accent);border-color:var(--accent);color:#fff;}
+.layer-count{font-size:9px;color:var(--muted);min-width:20px;text-align:right;}
+.layer-remove{width:14px;height:14px;border:none;background:transparent;color:#e05252;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;}
+.layer-row:hover .layer-remove{opacity:1;}
+.kmz-remove{width:14px;height:14px;border:none;background:transparent;color:#e05252;font-size:15px;cursor:pointer;flex-shrink:0;}
+.kmz-layer-row{padding-left:22px;}
+
+/* ── TOTAL COUNT ── */
+#total-summary { padding:5px 12px; font-size:10px; color:var(--muted); border-top:1px solid var(--border); }
+
+/* ── CREDIT FOOTER ── */
+#credit-footer { padding:6px 12px 8px; font-size:9px; color:var(--border); line-height:1.5; border-top:1px solid var(--border); flex-shrink:0; }
+
+/* ── BOTTOM PANEL ── */
+#bottom-panel{border-top:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:5px;}
+.tool-btn{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all 0.12s;width:100%;text-align:left;}
+.tool-btn:hover{border-color:var(--accent);background:rgba(104,148,158,0.08);}
+.tool-btn.active{background:rgba(104,148,158,0.18);border-color:var(--accent);color:var(--accent);}
+.tool-btn:disabled{opacity:0.35;cursor:not-allowed;}
+.tool-btn svg{flex-shrink:0;}
+
+/* ── MAP ── */
+#map-wrap{flex:1;position:relative;display:flex;flex-direction:column;min-width:0;}
+#map{flex:1;width:100%;min-height:0;}
+#map.place-mode{cursor:crosshair;}
+
+/* ── LEAFLET ── */
+.leaflet-control-zoom{border:none!important;}
+.leaflet-control-zoom a{background:var(--panel)!important;color:var(--text)!important;border:1px solid var(--border)!important;}
+.leaflet-control-zoom a:hover{background:var(--teal)!important;color:#fff!important;}
+.leaflet-control-scale-line{background:rgba(22,27,34,0.85)!important;border-color:var(--accent)!important;color:var(--text)!important;font-family:'DM Mono',monospace!important;font-size:10px!important;padding:2px 6px!important;}
+.leaflet-popup-content-wrapper{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:7px;font-family:'DM Mono',monospace;font-size:12px;box-shadow:0 6px 24px rgba(0,0,0,0.6);}
+.leaflet-popup-tip{background:var(--panel);}
+.leaflet-popup-close-button{color:var(--muted)!important;font-size:16px!important;top:8px!important;right:8px!important;}
+.leaflet-popup-content{margin:13px 15px!important;}
+
+/* ── LOCATION ── */
+.loc-dot{width:18px;height:18px;position:relative;display:flex;align-items:center;justify-content:center;}
+.loc-dot::before{content:'';width:12px;height:12px;background:#4da6ff;border-radius:50%;border:2px solid #fff;box-shadow:0 0 6px rgba(77,166,255,0.6);position:absolute;z-index:1;}
+.loc-pulse{width:36px;height:36px;background:rgba(77,166,255,0.2);border-radius:50%;position:absolute;animation:locpulse 2s infinite;}
+@keyframes locpulse{0%{transform:scale(0.5);opacity:0.8}100%{transform:scale(1.5);opacity:0}}
+
+#location-btn{position:absolute;bottom:90px;right:10px;z-index:999;width:34px;height:34px;border-radius:4px;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.4);}
+#location-btn:hover{background:var(--teal);color:#fff;border-color:var(--teal);}
+#location-btn.active{background:#1a4a7a;border-color:#4da6ff;color:#4da6ff;}
+
+/* ── SEARCH PIN ── */
+.search-pin{display:flex;flex-direction:column;align-items:center;}
+.search-pin-head{width:20px;height:20px;background:#e05252;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);}
+.search-pin-stem{width:2px;height:8px;background:#e05252;margin-top:-1px;}
+
+/* ── ANNOTATION LABELS ── */
+.map-label{background:rgba(22,27,34,0.82);color:#e6edf3;font-family:'DM Mono',monospace;font-size:10px;padding:2px 5px;border-radius:3px;white-space:nowrap;border:1px solid rgba(104,148,158,0.3);}
+.ann-text{background:rgba(22,27,34,0.88);color:#fff;font-family:'DM Mono',monospace;font-size:12px;padding:4px 8px;border-radius:4px;white-space:nowrap;border:1px solid rgba(255,255,255,0.15);cursor:pointer;}
+.measure-label{background:rgba(245,215,110,0.15);color:#f5d76e;font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid rgba(245,215,110,0.4);white-space:nowrap;}
+
+/* ── CONTEXT MENU ── */
+#ctx-menu{position:fixed;z-index:8000;background:var(--panel);border:1px solid var(--border);border-radius:6px;min-width:190px;box-shadow:0 4px 16px rgba(0,0,0,0.5);padding:4px 0;display:none;}
+.ctx-item{padding:7px 13px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);transition:background 0.1s;}
+.ctx-item:hover{background:rgba(104,148,158,0.15);color:var(--mint);}
+.ctx-sep{height:1px;background:var(--border);margin:3px 0;}
+
+/* ── POPUPS ── */
+.popup-form{min-width:230px;}
+.popup-form h3{font-family:'Syne',sans-serif;font-size:13px;margin-bottom:10px;color:var(--mint);display:flex;align-items:center;}
+.popup-form label{font-size:10px;color:var(--muted);display:block;margin-bottom:3px;margin-top:8px;letter-spacing:0.08em;text-transform:uppercase;}
+.popup-form input,.popup-form textarea,.popup-form select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:5px 7px;border-radius:4px;outline:none;}
+.popup-form input:focus,.popup-form textarea:focus,.popup-form select:focus{border-color:var(--accent);}
+.popup-form textarea{resize:vertical;min-height:48px;}
+.popup-form .popup-btns{display:flex;gap:6px;margin-top:11px;}
+.btn-save{flex:1;padding:6px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.btn-save:hover{background:var(--accent);}
+.btn-cancel{padding:6px 10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.btn-delete{padding:6px 10px;background:transparent;color:#e05252;border:1px solid #e05252;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.point-popup h3{font-family:'Syne',sans-serif;font-size:13px;margin-bottom:5px;display:flex;align-items:center;}
+.point-popup .meta{font-size:10px;color:var(--muted);margin-bottom:7px;}
+.point-popup .notes{font-size:11px;background:var(--bg);padding:6px 8px;border-radius:4px;border:1px solid var(--border);margin-bottom:7px;}
+.point-popup .edit-btn{width:100%;padding:5px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.parcel-popup{min-width:200px;}
+.parcel-title{font-family:'Syne',sans-serif;font-size:13px;color:var(--mint);margin-bottom:8px;}
+.parcel-table{width:100%;border-collapse:collapse;font-size:11px;}
+.parcel-table td{padding:3px 6px 3px 0;vertical-align:top;}
+.parcel-table td:first-child{color:var(--muted);white-space:nowrap;padding-right:10px;}
+.parcel-note{font-size:9px;color:var(--muted);margin-top:8px;opacity:0.7;}
+
+/* ── MODALS ── */
+.modal-overlay{position:fixed;inset:0;z-index:8500;background:rgba(13,17,23,0.8);display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:22px;width:300px;display:flex;flex-direction:column;gap:11px;}
+.modal-box h3{font-family:'Syne',sans-serif;font-size:14px;color:var(--mint);}
+.modal-box label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:4px;}
+.modal-box input,.modal-box select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:6px 8px;border-radius:4px;outline:none;}
+.modal-box input:focus{border-color:var(--accent);}
+.modal-btns{display:flex;gap:8px;}
+.modal-btn-save{flex:1;padding:7px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.modal-btn-cancel{padding:7px 12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.alb-color-row{display:flex;align-items:center;gap:10px;}
+#alb-color{width:44px;height:32px;padding:2px;border-radius:4px;border:1px solid var(--border);background:var(--bg);cursor:pointer;}
+#alb-preview{width:20px;height:20px;border-radius:2px;border:1.5px solid rgba(255,255,255,0.18);flex-shrink:0;background:#e05252;}
+
+/* ── LOGIN ── */
+#login-overlay{position:fixed;inset:0;z-index:9999;background:rgba(13,17,23,0.97);display:flex;align-items:center;justify-content:center;}
+#login-box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:32px 36px;width:320px;display:flex;flex-direction:column;gap:16px;}
+#login-box h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.06em;}
+#login-box p{font-size:11px;color:var(--muted);margin-top:-8px;}
+.login-field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:5px;}
+.login-field input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:8px 10px;border-radius:5px;outline:none;}
+.login-field input:focus{border-color:var(--accent);}
+#login-err{font-size:11px;color:#e05252;display:none;}
+#login-submit{background:var(--teal);color:#fff;border:none;font-family:'DM Mono',monospace;font-size:12px;padding:10px;border-radius:5px;cursor:pointer;width:100%;}
+#login-submit:hover{background:var(--accent);}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;font-family:'DM Mono',monospace;font-size:12px;padding:8px 18px;border-radius:20px;opacity:0;transition:opacity 0.25s;pointer-events:none;z-index:9999;white-space:nowrap;}
+#toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- DRAWING TOOLBAR (top center, Nearmap-style) -->
+<div id="draw-toolbar">
+  <div class="toolbar-group">
+    <button class="toolbar-btn active" id="place-btn" onclick="Points.togglePlaceMode()" title="Place point (P)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+      <span>Place Point: ON</span>
+    </button>
+  </div>
+  <div class="toolbar-group">
+    <button class="toolbar-btn" id="tool-line" onclick="Annotations.setTool('line')" title="Draw line">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+      Line
+    </button>
+    <button class="toolbar-btn" id="tool-shape" onclick="Annotations.setTool('shape')" title="Draw shape">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 21,21 3,21"/></svg>
+      Shape
+    </button>
+    <button class="toolbar-btn" id="tool-text" onclick="Annotations.setTool('text')" title="Place text">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+      Text
+    </button>
+    <button class="toolbar-btn" id="tool-measure" onclick="Annotations.setTool('measure')" title="Measure distance">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M2 12l4-4M2 12l4 4M22 12l-4-4M22 12l-4 4"/></svg>
+      Measure
+    </button>
+    <button class="toolbar-btn" id="tool-erase" onclick="Annotations.setTool('erase')" title="Erase annotation">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l13-13 4 4-9 9"/></svg>
+      Erase
+    </button>
+  </div>
+  <div class="toolbar-group">
+    <button class="toolbar-btn" id="undo-btn" onclick="Layers.undo()" disabled title="Undo (Ctrl+Z)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+      Undo
+    </button>
+  </div>
+  <div class="toolbar-group">
+    <button class="toolbar-btn" onclick="UI.exportGeoJSON()" title="Export all points as GeoJSON">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+  </div>
+  <div id="toolbar-version"></div>
+</div>
+
+<!-- MAIN AREA -->
+<div id="main">
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>Chaka Signs</h1>
+    <p>Coppell, TX — Sign Campaign Map</p>
+  </div>
+
+  <div id="search-wrap">
+    <input id="search-input" type="text" placeholder="Search parcels or address…"/>
+    <span id="search-icon">🔍</span>
+    <div id="search-results"></div>
+  </div>
+
+  <div id="presence-bar"><span id="presence-label">Online:</span></div>
+
+  <div id="user-bar">
+    <div id="user-bar-name">Signed in as <span id="user-bar-name-val">—</span></div>
+    <button id="logout-btn" onclick="UI.doLogout()">Log out</button>
+  </div>
+
+  <div id="active-layer-bar">
+    <label>Active layer (click map to place):</label>
+    <select id="active-layer-select" onchange="Layers.saveActiveLayer(this.value)"></select>
+  </div>
+
+  <div id="basemap-row">
+    <label><input type="checkbox" id="labels-toggle" onchange="UI.toggleLabels(this.checked)"> Point labels</label>
+    <label><input type="checkbox" id="street-labels-toggle" onchange="UI.toggleStreetLabels(this.checked)" checked> Street labels</label>
+  </div>
+
+  <div id="layers-section">
+    <div class="section-label">Large Signs</div>
+    <div id="large-layers-list"></div>
+    <div class="section-label" style="margin-top:5px">Small Signs</div>
+    <div id="small-layers-list"></div>
+    <div class="section-label" style="margin-top:5px">Base Layers</div>
+    <div id="parcel-layer-row"></div>
+    <div id="kmz-layers-section" style="display:none">
+      <div class="section-label" style="margin-top:5px">Overlays</div>
+      <div id="kmz-layers-list"></div>
+    </div>
+    <div id="custom-layers-section" style="display:none">
+      <div class="section-label" style="margin-top:5px">Custom Layers</div>
+      <div id="custom-layers-list"></div>
+    </div>
+  </div>
+
+  <div id="total-summary"><span id="total-count">0 points</span></div>
+
+  <div id="credit-footer">Created by Brent Billington<br>Chaka Campaign — Place 5</div>
+
+  <div id="bottom-panel">
+    <button class="tool-btn" onclick="UI.openAddLayer()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Custom Layer
+    </button>
+    <button class="tool-btn" onclick="UI.triggerKmzUpload()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import KMZ / GeoJSON
+    </button>
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="map-wrap">
+  <div id="map"></div>
+  <button id="location-btn" onclick="UI.toggleMyLocation()" title="My location">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2" opacity="0.4"/></svg>
+  </button>
+</div>
+
+</div><!-- #main -->
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div id="login-box">
+    <h2>Chaka Signs</h2>
+    <p>Coppell, TX — Sign Campaign Map</p>
+    <div class="login-field"><label>Your Name</label><input id="login-name" type="text" placeholder="e.g. Brent" autocomplete="name"/></div>
+    <div class="login-field"><label>Password</label><input id="login-pw" type="password" placeholder="Map password" autocomplete="current-password"/></div>
+    <div id="login-err"></div>
+    <button id="login-submit" onclick="UI.doLogin()">Enter Map</button>
+  </div>
+</div>
+
+<!-- ADD LAYER MODAL -->
+<div id="add-layer-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Add Custom Layer</h3>
+    <div><label>Layer Name</label><input id="alb-name" type="text" placeholder="e.g. Priority Locations"/></div>
+    <div><label>Shape</label><select id="alb-shape" onchange="UI.updateAlbPreview()"><option value="circle">Circle (small)</option><option value="square">Square (large)</option></select></div>
+    <div><label>Color</label>
+      <div class="alb-color-row">
+        <input type="color" id="alb-color" value="#e05252" oninput="UI.updateAlbPreview()"/>
+        <div id="alb-preview"></div>
+        <span style="font-size:10px;color:var(--muted)" id="alb-color-hex">#e05252</span>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn-save" onclick="UI.confirmAddLayer()">Add Layer</button>
+      <button class="modal-btn-cancel" onclick="UI.closeAddLayer()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT LAYER PICKER MODAL -->
+<div id="import-layer-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Import Points — Choose Layer</h3>
+    <p style="font-size:10px;color:var(--muted)">Which layer should the imported points go on?</p>
+    <div><label>Layer</label><select id="imp-layer-select"></select></div>
+    <div class="modal-btns">
+      <button class="modal-btn-save" onclick="UI.confirmImportLayer()">Import</button>
+      <button class="modal-btn-cancel" onclick="UI.closeImportLayer()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- LAYER PICKER FOR PIN SAVE -->
+<div id="layer-pick-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Save Pin as Point</h3>
+    <div><label>Name / Label</label><input id="lp-name" type="text" placeholder="Address or label"/></div>
+    <div><label>Save to Layer</label><select id="lp-layer-select"></select></div>
+    <div class="modal-btns">
+      <button class="modal-btn-save" onclick="UI.confirmLayerPick()">Save</button>
+      <button class="modal-btn-cancel" onclick="UI.closeLayerPick()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="UI.ctxPlace()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    <span id="ctx-place-label">Place point here</span>
+  </div>
+  <div class="ctx-item" id="ctx-paste-item" onclick="UI.ctxPaste()" style="display:none">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    Paste Point
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="UI.hideCtxMenu()">Cancel</div>
+</div>
+
+<!-- FILE INPUT -->
+<input type="file" id="kmz-file-input" accept=".kmz,.kml,.geojson,.json" style="display:none" onchange="UI.handleKmzUpload(event)">
+<div id="toast"></div>
+
+<!-- MODULES -->
+<script src="layers.js"></script>
+<script src="presence.js"></script>
+<script src="sync.js"></script>
+<script src="parcels_layer.js"></script>
+<script src="points.js"></script>
+<script src="annotations.js"></script>
+<script src="ui.js"></script>
+
+<script>
+(function() {
+  // Version display
+  document.getElementById('toolbar-version').textContent = CONFIG.VERSION;
+
+  // Map
+  const map = L.map('map', {
+    center: CONFIG.MAP_CENTER, zoom: CONFIG.MAP_ZOOM,
+    minZoom: CONFIG.MIN_ZOOM, maxZoom: CONFIG.MAX_ZOOM,
+    zoomControl: true,
+  });
+
+  L.control.scale({ imperial:true, metric:true, position:'bottomright' }).addTo(map);
+
+  L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution:'Imagery © Esri', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:19 }
+  ).addTo(map);
+
+  const streetLabels = L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+    { subdomains:'abcd', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:19, opacity:0.95 }
+  ).addTo(map);
+
+  // Init modules in correct order
+  Layers.init(map);
+  ParcelsLayer.init(map);
+  Points.init(map, allPoints => Sync.savePoints(allPoints));
+  Annotations.init(map, anns => Sync.saveAnnotations(anns));
+  UI.init(map, streetLabels, username => {
+    // On login: start sync and presence
+    Sync.startRefresh(data => {
+      Layers.loadFromSheets(data.points || {}, null);
+      Points.renderAll();  // re-renders with correct _onMarkerClick handler
+      if (data.annotations) Annotations.loadFromSheets(data.annotations);
+    });
+    Sync.startPresence(
+      Presence.getSessionId(),
+      Presence.getCurrentUser,
+      presenceData => Presence.render(presenceData)
+    );
+    Presence.render({});
+  });
+
+  // Expose map globally for popup close calls
+  window.map = map;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// config.js — Chaka Signs Map v3.1 — All configuration in one place
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CONFIG = {
+
+  VERSION: 'v3.1',
+
+  // ── AUTH ────────────────────────────────────────────────────────────────────
+  MAP_PASSWORD: 'choochoo',
+
+  // ── BACKEND ─────────────────────────────────────────────────────────────────
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx5MkAyVLaFS4p5G6JM6UfSCBQEeFGpMK88zqMwDlXT51TvVFhEE4BFYUxID0i6G9wU/exec',
+  SHEET_ID: '1aBfll1stuWNXGD9Ez9vQnJ_uiJOt6zoVc-iNOjnE2nw',
+
+  // ── MAP ─────────────────────────────────────────────────────────────────────
+  MAP_CENTER: [32.9546, -97.0075],
+  MAP_ZOOM:   14,
+  MIN_ZOOM:   10,
+  MAX_ZOOM:   19,
+
+  // ── INTERVALS (ms) ──────────────────────────────────────────────────────────
+  REFRESH_INTERVAL:  15000,
+  PRESENCE_INTERVAL: 25000,
+  PRESENCE_TIMEOUT:  60000,
+
+  // ── LAYER DEFINITIONS ───────────────────────────────────────────────────────
+  LAYERS: [
+    { id:'large-repair',    name:'Large Sign (Repair)',    color:'#e05252', shape:'square', group:'large' },
+    { id:'large-risky',     name:'Large Signs (Risky)',    color:'#e07c3a', shape:'square', group:'large' },
+    { id:'large-pending',   name:'Large Signs (Pending)',  color:'#4d94d4', shape:'square', group:'large' },
+    { id:'large-ready',     name:'Large Signs (Ready)',    color:'#5cb85c', shape:'square', group:'large' },
+    { id:'large-installed', name:'Large Signs (Installed)',color:'#9b6dd4', shape:'square', group:'large' },
+    { id:'small-risky',     name:'Small Signs (Risky)',    color:'#e07c3a', shape:'circle', group:'small' },
+    { id:'small-pending',   name:'Small Signs (Pending)',  color:'#4d94d4', shape:'circle', group:'small' },
+    { id:'small-ready',     name:'Small Signs (Ready)',    color:'#5cb85c', shape:'circle', group:'small' },
+    { id:'small-installed', name:'Small Signs (Installed)',color:'#9b6dd4', shape:'circle', group:'small' },
+    { id:'residential',     name:'Residential Signs',      color:'#e06fa0', shape:'circle', group:'small' },
+  ],
+
+  // ── SHOW LABELS BY DEFAULT ───────────────────────────────────────────────────
+  SHOW_LABELS: false,
+
+  // ── RESIDENTIAL SEED DATA ───────────────────────────────────────────────────
+  // Auto-loaded on first launch if Sheet is empty. Fully editable once loaded.
+  SEED_POINTS: {
+    'residential': [
+      { id:'res_001', lat:32.99072, lng:-96.97290, name:'Barbara Arnt — 722 Warwick Ln', notes:'Route A · 1 sign' },
+      { id:'res_002', lat:32.98559, lng:-96.96631, name:'Jason & Rachel Wilcox — 833 Castle Creek Dr', notes:'Route A · 1 sign' },
+      { id:'res_003', lat:32.98328, lng:-96.96926, name:'Holly Visco — 665 Raintree Cir', notes:'Route A · 1 sign · INSTALL - anywhere in front yard' },
+      { id:'res_004', lat:32.97942, lng:-96.96552, name:'Brandi Ragland — 817 Ashford Dr', notes:'Route A · 1 sign' },
+      { id:'res_005', lat:32.97866, lng:-96.96546, name:'Alyx Pease — 818 Greenway Dr', notes:'Route A · 1 sign' },
+      { id:'res_006', lat:32.97839, lng:-96.96486, name:'Kevin & Holly Chaka — 830 Greenway Dr', notes:'Route A · 1 sign' },
+      { id:'res_007', lat:32.97824, lng:-96.96993, name:'Di-ane Stokes — 346 Greentree Dr', notes:'Route A · 1 sign' },
+      { id:'res_008', lat:32.97897, lng:-96.98843, name:'Frank Gasparro — 328 Crooked Tree Ct', notes:'Route B · 2 signs' },
+      { id:'res_009', lat:32.97752, lng:-96.98965, name:'Christy Mitchell — 305 N Heartz Rd', notes:'Route B · 1 sign' },
+      { id:'res_010', lat:32.97761, lng:-96.98343, name:'Niko Leinonen — 341 Kyle Dr', notes:'Route B · 1 sign' },
+      { id:'res_011', lat:32.97877, lng:-96.97879, name:'Jessica de la Chapelle — 320 Clear Haven Dr', notes:'Route B · 1 sign' },
+      { id:'res_012', lat:32.97880, lng:-96.97837, name:'Katy McKinney — 331 Still Forest Dr', notes:'Route B · 1 sign' },
+      { id:'res_013', lat:32.98460, lng:-96.99637, name:'Shae Nault-Hahn — 140 Levee Pl', notes:'Route B · 1 sign' },
+      { id:'res_014', lat:32.98709, lng:-97.00300, name:'Laura Wortman — 506 Eden St', notes:'Route B · 1 sign' },
+      { id:'res_015', lat:32.97366, lng:-96.97999, name:'Mercy Hall — 483 Grace Ln', notes:'Route C · 3 signs' },
+      { id:'res_016', lat:32.97329, lng:-96.98138, name:'Chris & Liz Boyd — 346 Pecan Hollow Dr', notes:'Route C · 1 sign · INSTALL' },
+      { id:'res_017', lat:32.97197, lng:-96.98196, name:'Byron Pascoe — 341 Park Valley Dr', notes:'Route C · 1 sign' },
+      { id:'res_018', lat:32.97031, lng:-96.98273, name:'Christopher Blanton — 108 Trailwood Ln', notes:'Route C · 1 sign' },
+      { id:'res_019', lat:32.97241, lng:-96.98525, name:'Dominic & Laura Nevarez — 292 Park Valley Dr', notes:'Route C · 1 sign' },
+      { id:'res_020', lat:32.97202, lng:-96.98656, name:'Truc Skye — 271 Park Valley Dr', notes:'Route C · 1 sign' },
+      { id:'res_021', lat:32.97361, lng:-96.98600, name:'Heather Thurgood — 150 Pecan Hollow Dr', notes:'Route C · 1 sign' },
+      { id:'res_022', lat:32.97467, lng:-96.98763, name:'Ted Ford — 231 Sleepy Hollow Ln', notes:'Route C · 1 sign' },
+      { id:'res_023', lat:32.97444, lng:-96.98761, name:'Christopher Bryan / Nina Lovatt — 227 Sleepy Hollow Ln', notes:'Route C · 1 sign' },
+      { id:'res_024', lat:32.97310, lng:-96.98699, name:'Arun Prasath — 200 Sleepy Hollow Ln', notes:'Route C · 1 sign' },
+      { id:'res_025', lat:32.97394, lng:-96.99478, name:'Tammie Stewart — 196 Diamond Ridge Dr', notes:'Route D · 1 sign · INSTALL - place where most visible' },
+      { id:'res_026', lat:32.97069, lng:-97.00117, name:'Laura Penton — 128 Summer Pl Dr', notes:'Route D · 1 sign' },
+      { id:'res_027', lat:32.97269, lng:-97.00824, name:'Pam Johnson — 118 Winding Hollow Ln', notes:'Route D · 1 sign' },
+      { id:'res_028', lat:32.97434, lng:-97.00752, name:'Debra Fruithandler — 150 Winding Hollow Ln', notes:'Route D · 1 sign' },
+      { id:'res_029', lat:32.96321, lng:-97.00230, name:'Molly Keith — 257 Whispering Hills Dr', notes:'Route D · 1 sign' },
+      { id:'res_030', lat:32.96122, lng:-96.99974, name:'Brittany Gauntt — 208 Jeb Ct', notes:'Route D · 1 sign' },
+      { id:'res_031', lat:32.96102, lng:-96.99473, name:'Mattie Colbert — 118 Blackburn Dr', notes:'Route D · 1 sign' },
+      { id:'res_032', lat:32.96202, lng:-96.99476, name:'Brent Ball — 322 Devon Dr', notes:'Route D · 1 sign' },
+      { id:'res_033', lat:32.97743, lng:-96.97099, name:'Julie Wilke — 716 Michelle Pl', notes:'Route E · 1 sign' },
+      { id:'res_034', lat:32.97525, lng:-96.96955, name:'Kayley Hager — 732 Parkway Blvd', notes:'Route E · 1 sign' },
+      { id:'res_035', lat:32.97439, lng:-96.97031, name:'Kristi Walsh — 728 Marlee Cir', notes:'Route E · 1 sign' },
+      { id:'res_036', lat:32.97356, lng:-96.97218, name:'Elizabeth Minkel — 702 Alendale Dr', notes:'Route E · 1 sign' },
+      { id:'res_037', lat:32.97610, lng:-96.96776, name:'Courtney Torres — 818 Meadowglen Cir', notes:'Route E · 1 sign' },
+      { id:'res_038', lat:32.97453, lng:-96.96577, name:'Beth Holland — 220 Meadowglen Cir', notes:'Route E · 1 sign' },
+      { id:'res_039', lat:32.97390, lng:-96.96579, name:'Melodi Rouhani — 208 Meadowglen Cir', notes:'Route E · 1 sign · INSTALL' },
+      { id:'res_040', lat:32.97069, lng:-96.96735, name:'Hannah Benning — 109 Deann Dr', notes:'Route E · 1 sign' },
+      { id:'res_041', lat:32.97201, lng:-96.96356, name:'Anna Pease — 928 Westwind Cove', notes:'Route E · 1 sign' },
+      { id:'res_042', lat:32.96698, lng:-96.98522, name:'Susan Boyles — 217 Simmons Dr', notes:'Route F · 1 sign · INSTALL - between house and sidewalk' },
+      { id:'res_043', lat:32.96606, lng:-96.97436, name:'Joy Smartt — 638 Pheasant Ln', notes:'Route F · 1 sign' },
+      { id:'res_044', lat:32.96525, lng:-96.97053, name:'Lynn Fields — 205 Mockingbird Ln', notes:'Route F · 1 sign' },
+      { id:'res_045', lat:32.96648, lng:-96.96900, name:'Tricia Badillo — 144 Hill Dr', notes:'Route F · 1 sign' },
+      { id:'res_046', lat:32.95785, lng:-96.96994, name:'Sherry & Buzz Lupton — 747 Pelican Ln', notes:'Route F · 1 sign' },
+      { id:'res_047', lat:32.95620, lng:-96.96492, name:'Chris & Amy Kryzak — 838 Pelican Ln', notes:'Route F · 1 sign' },
+      { id:'res_048', lat:32.96658, lng:-96.98156, name:'Krystle Hernandez — 6404 Sandy Knoll Dr', notes:'Route F · 1 sign · VERIFY - may be outside Coppell' },
+      { id:'res_049', lat:32.95716, lng:-96.98689, name:'Alyssa Moog — 308 Forestcrest Ln', notes:'Route F · 1 sign' },
+      { id:'res_050', lat:32.97735, lng:-96.95546, name:'Sarah Naef — 1048 Creek Crossing', notes:'Route G · 1 sign' },
+      { id:'res_051', lat:32.97331, lng:-96.95783, name:'Linzey Tweed — 204 Driftwood Dr', notes:'Route G · 1 sign' },
+      { id:'res_052', lat:32.97123, lng:-96.95625, name:'Jessie Zhang — 1025 Cherrywood Trl', notes:'Route G · 1 sign' },
+      { id:'res_053', lat:32.97018, lng:-96.96233, name:'Lori Vincenzo — 922 Laguna Dr', notes:'Route G · 1 sign' },
+      { id:'res_054', lat:32.96252, lng:-96.96188, name:'Alexandra Porcaro — 322 Barclay Ave', notes:'Route G · 1 sign' },
+      { id:'res_055', lat:32.96459, lng:-96.95049, name:'Karla Moog — 109 Sunrise Dr', notes:'Route G · 1 sign' },
+      { id:'res_056', lat:32.970589, lng:-96.958929, name:'Ram — 101 Kimbel Kourt', notes:'Route G · 1 sign' },
+    ]
+  },
+};
