@@ -1,10 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sync.js — Google Sheets sync: points, annotations, presence
+// sync.js — Google Sheets sync
 // ─────────────────────────────────────────────────────────────────────────────
-
 const Sync = (() => {
   let lastHash = '';
-
   async function loadAll(onUpdate) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
     try {
@@ -16,12 +14,10 @@ const Sync = (() => {
       onUpdate(data);
     } catch(e) { console.warn('Sync load failed:', e); }
   }
-
   function startRefresh(onUpdate) {
     loadAll(onUpdate);
     setInterval(() => loadAll(onUpdate), CONFIG.REFRESH_INTERVAL);
   }
-
   async function savePoints(allPoints) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
     try {
@@ -29,15 +25,13 @@ const Sync = (() => {
       await fetch(`${CONFIG.APPS_SCRIPT_URL}?payload=${encodeURIComponent(payload)}`);
     } catch(e) { console.warn('Sync save failed:', e); }
   }
-
   async function saveAnnotations(annotations) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
     try {
       const payload = JSON.stringify({ action:'saveAnnotations', annotations });
       await fetch(`${CONFIG.APPS_SCRIPT_URL}?payload=${encodeURIComponent(payload)}`);
-    } catch(e) { console.warn('Annotation save failed:', e); }
+    } catch(e) {}
   }
-
   async function sendHeartbeat(sessionId, name) {
     if (!CONFIG.APPS_SCRIPT_URL || !name) return;
     try {
@@ -45,7 +39,6 @@ const Sync = (() => {
       await fetch(`${CONFIG.APPS_SCRIPT_URL}?payload=${encodeURIComponent(payload)}`);
     } catch(e) {}
   }
-
   async function loadPresence(onUpdate) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
     try {
@@ -54,13 +47,11 @@ const Sync = (() => {
       onUpdate(data.presence || {});
     } catch(e) {}
   }
-
   function startPresence(sessionId, getName, onPresenceUpdate) {
     sendHeartbeat(sessionId, getName());
     if (!CONFIG.APPS_SCRIPT_URL) return;
     setInterval(() => sendHeartbeat(sessionId, getName()), CONFIG.PRESENCE_INTERVAL);
     setInterval(() => loadPresence(onPresenceUpdate), CONFIG.PRESENCE_INTERVAL);
   }
-
   return { loadAll, startRefresh, savePoints, saveAnnotations, sendHeartbeat, startPresence };
 })();

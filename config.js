@@ -1,30 +1,27 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// config.js — Chaka Signs Map v3.1 — All configuration in one place
+// config.js — Chaka Signs Map v3.1c
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CONFIG = {
 
-  VERSION: 'v3.1',
+  VERSION: 'v3.1c',
 
-  // ── AUTH ────────────────────────────────────────────────────────────────────
   MAP_PASSWORD: 'choochoo',
 
-  // ── BACKEND ─────────────────────────────────────────────────────────────────
   APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx5MkAyVLaFS4p5G6JM6UfSCBQEeFGpMK88zqMwDlXT51TvVFhEE4BFYUxID0i6G9wU/exec',
   SHEET_ID: '1aBfll1stuWNXGD9Ez9vQnJ_uiJOt6zoVc-iNOjnE2nw',
 
-  // ── MAP ─────────────────────────────────────────────────────────────────────
   MAP_CENTER: [32.9546, -97.0075],
   MAP_ZOOM:   14,
   MIN_ZOOM:   10,
   MAX_ZOOM:   19,
 
-  // ── INTERVALS (ms) ──────────────────────────────────────────────────────────
   REFRESH_INTERVAL:  15000,
   PRESENCE_INTERVAL: 25000,
   PRESENCE_TIMEOUT:  60000,
 
-  // ── LAYER DEFINITIONS ───────────────────────────────────────────────────────
+  SHOW_LABELS: false,
+
   LAYERS: [
     { id:'large-repair',    name:'Large Sign (Repair)',    color:'#e05252', shape:'square', group:'large' },
     { id:'large-risky',     name:'Large Signs (Risky)',    color:'#e07c3a', shape:'square', group:'large' },
@@ -38,11 +35,6 @@ const CONFIG = {
     { id:'residential',     name:'Residential Signs',      color:'#e06fa0', shape:'circle', group:'small' },
   ],
 
-  // ── SHOW LABELS BY DEFAULT ───────────────────────────────────────────────────
-  SHOW_LABELS: false,
-
-  // ── RESIDENTIAL SEED DATA ───────────────────────────────────────────────────
-  // Auto-loaded on first launch if Sheet is empty. Fully editable once loaded.
   SEED_POINTS: {
     'residential': [
       { id:'res_001', lat:32.99072, lng:-96.97290, name:'Barbara Arnt — 722 Warwick Ln', notes:'Route A · 1 sign' },

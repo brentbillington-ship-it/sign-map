@@ -1,43 +1,42 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// annotations.js — Drawing toolbar: Line, Shape, Text, Measure, Erase
+// annotations.js — v3.1c — Drawing with color/thickness/label options
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Annotations = (() => {
-  let mapRef      = null;
-  let activeTool  = null;   // 'line' | 'shape' | 'text' | 'measure' | 'erase'
-  let drawPoints  = [];     // in-progress click points
-  let drawLayer   = null;   // in-progress preview layer
-  let tempLine    = null;
-  let annotations = [];     // [{id, type, geojson, style, label, creator, ts}]
-  let leafletAnns = {};     // id -> Leaflet layer
-  let onSave      = null;
+  let mapRef        = null;
+  let activeTool    = null;
+  let drawPoints    = [];
+  let drawLayer     = null;
+  let annotations   = [];
+  let leafletAnns   = {};
   let mapLayerGroup = null;
+  let onSave        = null;
 
-  const COLORS = {
-    line:    '#4da6ff',
-    shape:   '#68949E',
-    text:    '#ffffff',
-    measure: '#f5d76e',
-  };
+  // Draw options (set via the options bar)
+  let drawColor     = '#4da6ff';
+  let drawThickness = 2;
+  let drawLabel     = '';
 
-  // ── INIT ────────────────────────────────────────────────────────────────────
   function init(map, onSaveCallback) {
     mapRef  = map;
     onSave  = onSaveCallback;
-    mapLayerGroup = L.layerGroup().addTo(mapRef);
-
-    map.on('click', _onMapClick);
+    mapLayerGroup = L.layerGroup().addTo(mapRef);  // FIXED: mapRef not map
+    map.on('click',    _onMapClick);
     map.on('mousemove', _onMouseMove);
-    map.on('dblclick', _onMapDblClick);
+    map.on('dblclick', _onDblClick);
   }
 
-  // ── LOAD FROM SHEETS ─────────────────────────────────────────────────────────
   function loadFromSheets(data) {
     annotations = data || [];
     mapLayerGroup.clearLayers();
-    leafletAnns = {};
+    leafletAnns  = {};
     annotations.forEach(_renderAnnotation);
   }
+
+  // ── DRAW OPTIONS ─────────────────────────────────────────────────────────────
+  function setDrawColor(c)     { drawColor = c; }
+  function setDrawThickness(t) { drawThickness = Number(t); }
+  function setDrawLabel(l)     { drawLabel = l; }
 
   // ── TOOL SELECTION ───────────────────────────────────────────────────────────
   function setTool(tool) {
@@ -45,125 +44,134 @@ const Annotations = (() => {
     clearTool();
     activeTool = tool;
     drawPoints = [];
-    document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.toolbar-btn[data-tool]').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById(`tool-${tool}`);
     if (btn) btn.classList.add('active');
-    mapRef.getContainer().style.cursor = tool === 'erase' ? 'not-allowed' : 'crosshair';
-    // Disable place mode while drawing
+
+    // Show options bar and status hint
+    _showOptionsBar(tool);
+    _setStatusHint(tool);
+
+    // Disable place mode
     if (typeof Points !== 'undefined') Points.setPlaceMode(false);
-    const placeBtn = document.getElementById('place-btn');
-    if (placeBtn) placeBtn.classList.remove('active');
+    mapRef.getContainer().style.cursor = tool === 'erase' ? 'not-allowed' : 'crosshair';
   }
 
   function clearTool() {
     activeTool = null;
     drawPoints = [];
-    if (drawLayer)  { mapRef.removeLayer(drawLayer); drawLayer=null; }
-    if (tempLine)   { mapRef.removeLayer(tempLine);  tempLine=null; }
-    document.querySelectorAll('.toolbar-btn').forEach(b => b.classList.remove('active'));
+    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer = null; }
+    document.querySelectorAll('.toolbar-btn[data-tool]').forEach(b => b.classList.remove('active'));
     mapRef.getContainer().style.cursor = '';
+    _hideOptionsBar();
+    _setStatusHint(null);
   }
 
   function getActiveTool() { return activeTool; }
+
+  function _showOptionsBar(tool) {
+    const bar = document.getElementById('draw-options-bar');
+    if (!bar) return;
+    const showLabel = tool !== 'erase';
+    bar.style.display = showLabel ? 'flex' : 'none';
+    // Update color swatch preview
+    const colorInput = document.getElementById('draw-color-input');
+    if (colorInput) colorInput.value = drawColor;
+  }
+
+  function _hideOptionsBar() {
+    const bar = document.getElementById('draw-options-bar');
+    if (bar) bar.style.display = 'none';
+  }
+
+  function _setStatusHint(tool) {
+    const hints = {
+      line:    'Click to add points · Double-click to finish · Esc to cancel',
+      shape:   'Click to draw shape · Double-click to close · Esc to cancel',
+      text:    'Click map to place text annotation',
+      measure: 'Click to measure · Double-click to finish and show distance',
+      erase:   'Click any annotation to delete it · Esc to cancel',
+    };
+    const el = document.getElementById('toolbar-hint');
+    if (el) { el.textContent = tool ? hints[tool]||'' : ''; el.style.display = tool ? 'block' : 'none'; }
+  }
 
   // ── MAP EVENTS ───────────────────────────────────────────────────────────────
   function _onMapClick(e) {
     if (!activeTool) return;
     L.DomEvent.stopPropagation(e);
-
-    if (activeTool === 'text') { _placeText(e.latlng); return; }
+    if (activeTool === 'text')  { _placeText(e.latlng); return; }
     if (activeTool === 'erase') return;
-    if (['line','shape','measure'].includes(activeTool)) {
-      drawPoints.push(e.latlng);
-      _updatePreview();
-    }
+    drawPoints.push(e.latlng);
+    _updatePreview(null);
   }
 
   function _onMouseMove(e) {
     if (!activeTool || !drawPoints.length) return;
     if (!['line','shape','measure'].includes(activeTool)) return;
-    _updatePreviewWithCursor(e.latlng);
+    _updatePreview(e.latlng);
   }
 
-  function _onMapDblClick(e) {
+  function _onDblClick(e) {
     if (!activeTool) return;
     L.DomEvent.stopPropagation(e);
-    if (activeTool === 'line')    { _finishLine(); }
-    if (activeTool === 'shape')   { _finishShape(); }
-    if (activeTool === 'measure') { _finishMeasure(); }
+    // Remove the last point (it was added by the click before dblclick)
+    if (drawPoints.length > 1) drawPoints.pop();
+    if (activeTool === 'line')    _finishLine();
+    if (activeTool === 'shape')   _finishShape();
+    if (activeTool === 'measure') _finishMeasure();
   }
 
-  // ── PREVIEW ──────────────────────────────────────────────────────────────────
-  function _updatePreview() {
-    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer=null; }
-    if (drawPoints.length < 2) return;
-    const color = COLORS[activeTool] || '#fff';
-    if (activeTool === 'shape' && drawPoints.length >= 3) {
-      drawLayer = L.polygon(drawPoints, { color, fillColor:color, fillOpacity:0.15, weight:2, dashArray:'5,5' }).addTo(mapRef);
-    } else {
-      drawLayer = L.polyline(drawPoints, { color, weight:2, dashArray:'5,5' }).addTo(mapRef);
-    }
-  }
-
-  function _updatePreviewWithCursor(cursor) {
-    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer=null; }
-    const pts = [...drawPoints, cursor];
+  function _updatePreview(cursor) {
+    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer = null; }
+    const pts = cursor ? [...drawPoints, cursor] : drawPoints;
     if (pts.length < 2) return;
-    const color = COLORS[activeTool] || '#fff';
+    const style = { color: drawColor, weight: drawThickness, dashArray: '5,4', opacity: 0.8 };
     if (activeTool === 'shape' && pts.length >= 3) {
-      drawLayer = L.polygon(pts, { color, fillColor:color, fillOpacity:0.1, weight:2, dashArray:'4,4' }).addTo(mapRef);
+      drawLayer = L.polygon(pts, { ...style, fillColor: drawColor, fillOpacity: 0.1 }).addTo(mapRef);
     } else {
-      drawLayer = L.polyline(pts, { color, weight:2, dashArray:'4,4' }).addTo(mapRef);
+      drawLayer = L.polyline(pts, style).addTo(mapRef);
     }
   }
 
-  // ── FINISH LINE ───────────────────────────────────────────────────────────────
   function _finishLine() {
     if (drawPoints.length < 2) { clearTool(); return; }
-    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer=null; }
+    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer = null; }
     const geojson = { type:'LineString', coordinates: drawPoints.map(p=>[p.lng,p.lat]) };
-    _saveAnnotation('line', geojson, { color: COLORS.line, weight:2 }, '');
+    _saveAnnotation('line', geojson, { color:drawColor, weight:drawThickness }, drawLabel);
     clearTool();
   }
 
-  // ── FINISH SHAPE ──────────────────────────────────────────────────────────────
   function _finishShape() {
     if (drawPoints.length < 3) { clearTool(); return; }
-    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer=null; }
+    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer = null; }
     const coords = [...drawPoints, drawPoints[0]].map(p=>[p.lng,p.lat]);
-    const geojson = { type:'Polygon', coordinates:[coords] };
-    _saveAnnotation('shape', geojson, { color:COLORS.shape, fillColor:COLORS.shape, fillOpacity:0.15, weight:2 }, '');
+    _saveAnnotation('shape', { type:'Polygon', coordinates:[coords] },
+      { color:drawColor, fillColor:drawColor, fillOpacity:0.15, weight:drawThickness }, drawLabel);
     clearTool();
   }
 
-  // ── FINISH MEASURE ────────────────────────────────────────────────────────────
   function _finishMeasure() {
     if (drawPoints.length < 2) { clearTool(); return; }
-    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer=null; }
-
+    if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer = null; }
     let totalM = 0;
     for (let i=1; i<drawPoints.length; i++) totalM += drawPoints[i-1].distanceTo(drawPoints[i]);
-    const totalFt  = totalM * 3.28084;
-    const totalMi  = totalM / 1609.34;
-    const label = totalMi >= 0.1
-      ? `${totalMi.toFixed(2)} mi (${Math.round(totalFt).toLocaleString()} ft)`
-      : `${Math.round(totalFt)} ft`;
-
-    const geojson = { type:'LineString', coordinates: drawPoints.map(p=>[p.lng,p.lat]) };
-    _saveAnnotation('measure', geojson, { color:COLORS.measure, weight:2, dashArray:'6,4' }, label);
+    const ft = totalM * 3.28084;
+    const mi = totalM / 1609.34;
+    const label = drawLabel || (mi >= 0.1 ? `${mi.toFixed(2)} mi (${Math.round(ft).toLocaleString()} ft)` : `${Math.round(ft).toLocaleString()} ft`);
+    _saveAnnotation('measure', { type:'LineString', coordinates: drawPoints.map(p=>[p.lng,p.lat]) },
+      { color: drawColor||'#f5d76e', weight: drawThickness, dashArray:'6,4' }, label);
     clearTool();
   }
 
-  // ── PLACE TEXT ───────────────────────────────────────────────────────────────
   function _placeText(latlng) {
-    const text = prompt('Enter annotation text:');
+    const text = drawLabel || prompt('Enter annotation text:');
     if (!text) return;
-    const geojson = { type:'Point', coordinates:[latlng.lng, latlng.lat] };
-    _saveAnnotation('text', geojson, { color:COLORS.text }, text);
+    _saveAnnotation('text', { type:'Point', coordinates:[latlng.lng,latlng.lat] }, { color: drawColor }, text);
     clearTool();
   }
 
-  // ── RENDER ANNOTATION ─────────────────────────────────────────────────────────
+  // ── RENDER ────────────────────────────────────────────────────────────────────
   function _renderAnnotation(ann) {
     let lyr;
     const g = ann.geojson;
@@ -172,76 +180,63 @@ const Annotations = (() => {
     if (ann.type === 'text') {
       const [lng,lat] = g.coordinates;
       lyr = L.marker([lat,lng], {
-        icon: L.divIcon({
-          html: `<div class="ann-text">${_esc(ann.label)}</div>`,
-          className:'', iconAnchor:[0,0],
-        }),
+        icon: L.divIcon({ html:`<div class="ann-text" style="color:${s.color||'#fff'}">${_esc(ann.label)}</div>`, className:'', iconAnchor:[0,0] }),
       });
     } else if (ann.type === 'shape') {
       const coords = g.coordinates[0].map(c=>[c[1],c[0]]);
-      lyr = L.polygon(coords, { color:s.color||'#68949E', fillColor:s.fillColor||s.color||'#68949E', fillOpacity:s.fillOpacity||0.15, weight:s.weight||2 });
+      lyr = L.polygon(coords, { color:s.color||'#68949E', fillColor:s.fillColor||s.color||'#68949E', fillOpacity:s.fillOpacity??0.15, weight:s.weight??2 });
     } else {
-      // line or measure
       const coords = g.coordinates.map(c=>[c[1],c[0]]);
-      lyr = L.polyline(coords, { color:s.color||'#4da6ff', weight:s.weight||2, dashArray:s.dashArray||'' });
+      lyr = L.polyline(coords, { color:s.color||'#4da6ff', weight:s.weight??2, dashArray:s.dashArray||'' });
       if (ann.label) {
         const mid = coords[Math.floor(coords.length/2)];
-        const labelLyr = L.marker(mid, {
-          icon: L.divIcon({ html:`<div class="measure-label">${_esc(ann.label)}</div>`, className:'', iconAnchor:[0,0] }),
+        const lblLyr = L.marker(mid, {
+          icon: L.divIcon({ html:`<div class="measure-label">${_esc(ann.label)}</div>`, className:'', iconAnchor:[0,12] }),
           interactive:false,
         });
-        mapLayerGroup.addLayer(labelLyr);
+        mapLayerGroup.addLayer(lblLyr);
       }
     }
 
     lyr.on('click', e => {
       if (activeTool === 'erase') { L.DomEvent.stopPropagation(e); _eraseAnnotation(ann.id); return; }
       L.DomEvent.stopPropagation(e);
-      _showAnnPopup(ann, e.latlng || e.target.getLatLng());
+      const latlng = e.latlng || (lyr.getLatLng ? lyr.getLatLng() : lyr.getBounds().getCenter());
+      L.popup({ maxWidth:220 }).setLatLng(latlng).setContent(`
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:#e6edf3">
+          <div style="font-weight:600;margin-bottom:5px;text-transform:capitalize">${_esc(ann.type)}${ann.label?' — '+_esc(ann.label):''}</div>
+          ${ann.creator?`<div style="color:#8b949e;font-size:10px;margin-bottom:8px">by ${_esc(ann.creator)}</div>`:''}
+          <button class="btn-delete" style="width:100%" onclick="Annotations.erase('${ann.id}');window.map&&window.map.closePopup()">🗑 Delete</button>
+        </div>
+      `).openOn(mapRef);
     });
 
     mapLayerGroup.addLayer(lyr);
     leafletAnns[ann.id] = lyr;
   }
 
-  function _showAnnPopup(ann, latlng) {
-    const creator = ann.creator ? `by ${_esc(ann.creator)}` : '';
-    L.popup({ maxWidth:220 })
-      .setLatLng(latlng)
-      .setContent(`
-        <div style="font-family:'DM Mono',monospace;font-size:11px;color:#e6edf3">
-          <div style="font-weight:600;margin-bottom:6px;text-transform:capitalize">${_esc(ann.type)}${ann.label?' — '+_esc(ann.label):''}</div>
-          ${creator?`<div style="color:#8b949e;margin-bottom:8px;font-size:10px">${creator}</div>`:''}
-          <button class="btn-delete" onclick="Annotations.erase('${ann.id}');map.closePopup && map.closePopup()">🗑 Delete</button>
-        </div>
-      `)
-      .openOn(mapRef);
-  }
-
   function _eraseAnnotation(id) {
     annotations = annotations.filter(a => a.id !== id);
     if (leafletAnns[id]) { mapLayerGroup.removeLayer(leafletAnns[id]); delete leafletAnns[id]; }
     onSave(annotations);
-    UI.toast('Annotation deleted');
+    if (typeof UI !== 'undefined') UI.toast('Annotation deleted');
   }
 
   function erase(id) { _eraseAnnotation(id); }
 
-  // ── SAVE ─────────────────────────────────────────────────────────────────────
   function _saveAnnotation(type, geojson, style, label) {
     const ann = {
-      id:      'ann_' + Date.now(),
-      type, geojson, style, label,
+      id: 'ann_' + Date.now(), type, geojson, style, label,
       creator: typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '',
-      ts:      Date.now(),
+      ts: Date.now(),
     };
     annotations.push(ann);
     _renderAnnotation(ann);
     onSave(annotations);
-    UI.toast(`${type.charAt(0).toUpperCase()+type.slice(1)} saved`);
+    if (typeof UI !== 'undefined') UI.toast(`${type.charAt(0).toUpperCase()+type.slice(1)} added`);
   }
 
   function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  return { init, loadFromSheets, setTool, clearTool, getActiveTool, erase };
+  return { init, loadFromSheets, setTool, clearTool, getActiveTool, erase, setDrawColor, setDrawThickness, setDrawLabel };
 })();

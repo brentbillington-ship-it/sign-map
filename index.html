@@ -4,268 +4,390 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chaka Signs Map</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <script src="config.js"></script>
 <script src="parcels.js"></script>
 
 <style>
 :root {
-  --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3;
-  --muted:#8b949e; --accent:#68949E; --teal:#115E6B; --navy:#1C355E; --mint:#B7CECD;
-  --panel-w:284px; --toolbar-h:44px;
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2128; --border:#21262d; --border2:#30363d;
+  --text:#e6edf3; --muted:#8b949e; --muted2:#6e7681;
+  --accent:#68949E; --teal:#115E6B; --navy:#1C355E; --mint:#B7CECD;
+  --panel-w:272px; --toolbar-h:40px;
+  --radius:5px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 
-/* ── DRAWING TOOLBAR ── */
+/* ── TOOLBAR ── */
 #draw-toolbar {
-  height:var(--toolbar-h); background:var(--panel); border-bottom:1px solid var(--border);
-  display:flex; align-items:center; justify-content:center; gap:4px; padding:0 12px;
-  position:relative; z-index:1100; flex-shrink:0;
+  height:var(--toolbar-h);background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:2px;padding:0 8px;
+  position:relative;z-index:1100;flex-shrink:0;
 }
-#draw-toolbar .toolbar-group { display:flex; align-items:center; gap:2px; padding:0 8px; border-right:1px solid var(--border); }
-#draw-toolbar .toolbar-group:last-child { border-right:none; }
+.toolbar-sep { width:1px;height:20px;background:var(--border2);margin:0 4px;flex-shrink:0; }
 .toolbar-btn {
-  display:flex; align-items:center; gap:5px; padding:5px 10px; border-radius:5px;
-  border:1px solid transparent; background:transparent; color:var(--muted);
-  font-family:'DM Mono',monospace; font-size:11px; cursor:pointer; transition:all 0.12s;
-  white-space:nowrap;
+  display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:var(--radius);
+  border:1px solid transparent;background:transparent;color:var(--muted);
+  font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all 0.1s;
+  white-space:nowrap;position:relative;
 }
-.toolbar-btn:hover { background:rgba(255,255,255,0.06); color:var(--text); border-color:var(--border); }
-.toolbar-btn.active { background:rgba(104,148,158,0.2); color:var(--accent); border-color:var(--accent); }
-.toolbar-btn svg { flex-shrink:0; }
-#toolbar-version { position:absolute; right:12px; font-size:9px; color:var(--muted); letter-spacing:0.1em; }
+.toolbar-btn:hover{background:rgba(255,255,255,0.06);color:var(--text);border-color:var(--border2);}
+.toolbar-btn.active{background:rgba(104,148,158,0.18);color:var(--accent);border-color:var(--accent);}
+.toolbar-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.toolbar-btn svg{flex-shrink:0;}
+.toolbar-btn .tt{
+  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:#000;color:#fff;font-size:10px;padding:3px 7px;border-radius:3px;
+  white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:9999;
+}
+.toolbar-btn:hover .tt{opacity:1;}
+#toolbar-version{margin-left:auto;font-size:9px;color:var(--muted2);letter-spacing:0.1em;flex-shrink:0;}
+#toolbar-hint{
+  position:absolute;top:calc(100% + 2px);left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.8);color:#fff;font-size:10px;padding:3px 10px;border-radius:3px;
+  white-space:nowrap;display:none;z-index:1200;pointer-events:none;
+}
 
-/* ── MAIN AREA ── */
-#main { display:flex; flex:1; overflow:hidden; min-height:0; height:calc(100vh - var(--toolbar-h)); }
+/* ── DRAW OPTIONS BAR ── */
+#draw-options-bar {
+  position:absolute;top:calc(var(--toolbar-h) + 4px);left:50%;transform:translateX(-50%);
+  background:var(--panel);border:1px solid var(--border2);border-radius:6px;
+  display:none;align-items:center;gap:10px;padding:6px 12px;z-index:1150;
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);font-size:11px;
+}
+#draw-options-bar label{color:var(--muted);font-size:10px;}
+#draw-color-input{width:28px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:1px;}
+#draw-thickness{width:70px;accent-color:var(--accent);}
+#draw-label-input{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:3px 6px;border-radius:3px;width:120px;outline:none;}
+#draw-label-input:focus{border-color:var(--accent);}
+.opt-sep{width:1px;height:16px;background:var(--border2);}
+
+/* ── MAIN ── */
+#main{display:flex;flex:1;overflow:hidden;min-height:0;height:calc(100vh - var(--toolbar-h));}
 
 /* ── SIDEBAR ── */
-#sidebar { width:var(--panel-w); min-width:var(--panel-w); height:100%; background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:1000; overflow:hidden; }
-#sidebar-header { padding:11px 14px; border-bottom:1px solid var(--border); background:var(--navy); }
-#sidebar-header h1 { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; color:#fff; letter-spacing:0.06em; text-transform:uppercase; }
-#sidebar-header p { font-size:10px; color:var(--mint); margin-top:1px; }
+#sidebar{
+  width:var(--panel-w);min-width:var(--panel-w);height:100%;
+  background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;z-index:1000;overflow:hidden;
+  transition:width 0.28s ease,min-width 0.28s ease;
+}
+#sidebar.collapsed{width:0;min-width:0;overflow:hidden;}
+#sidebar-header{padding:10px 12px;border-bottom:1px solid var(--border);background:var(--navy);flex-shrink:0;}
+#sidebar-header h1{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#fff;letter-spacing:0.06em;text-transform:uppercase;}
+#sidebar-header p{font-size:9px;color:var(--mint);margin-top:1px;}
+
+/* ── COLLAPSE BTN ── */
+#collapse-btn{
+  position:absolute;top:50%;transform:translateY(-50%);
+  left:var(--panel-w);z-index:1001;
+  width:16px;height:40px;background:var(--panel);border:1px solid var(--border);
+  border-left:none;border-radius:0 4px 4px 0;
+  cursor:pointer;color:var(--muted);font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  transition:left 0.28s ease;
+}
+#collapse-btn:hover{color:var(--text);background:var(--panel2);}
+#sidebar.collapsed ~ #map-wrap #collapse-btn,
+body.sidebar-collapsed #collapse-btn{left:0;}
 
 /* ── SEARCH ── */
-#search-wrap { padding:8px 12px; border-bottom:1px solid var(--border); position:relative; }
-#search-input { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'DM Mono',monospace; font-size:11px; padding:6px 28px 6px 8px; border-radius:5px; outline:none; }
-#search-input:focus { border-color:var(--accent); }
-#search-icon { position:absolute; right:20px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; font-size:13px; }
-#search-results { position:absolute; left:12px; right:12px; top:100%; background:var(--panel); border:1px solid var(--border); border-radius:5px; z-index:2000; max-height:220px; overflow-y:auto; display:none; box-shadow:0 4px 16px rgba(0,0,0,0.5); }
-.sr-item { padding:7px 10px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:7px; color:var(--text); }
-.sr-item:hover { background:rgba(104,148,158,0.12); }
-.sr-icon { flex-shrink:0; font-size:13px; }
-.sr-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.sr-loading,.sr-empty { color:var(--muted); cursor:default; font-size:10px; }
+#search-wrap{padding:7px 10px;border-bottom:1px solid var(--border);position:relative;flex-shrink:0;}
+#search-input{width:100%;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:5px 26px 5px 7px;border-radius:var(--radius);outline:none;}
+#search-input:focus{border-color:var(--accent);}
+#search-icon{position:absolute;right:18px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:12px;pointer-events:none;}
+#search-results{position:absolute;left:10px;right:10px;top:100%;background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);z-index:2000;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.5);}
+.sr-item{padding:6px 9px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--text);border-bottom:1px solid var(--border);}
+.sr-item:last-child{border-bottom:none;}
+.sr-item:hover{background:rgba(104,148,158,0.1);}
+.sr-icon{flex-shrink:0;font-size:12px;}
+.sr-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;}
+.sr-loading,.sr-empty{color:var(--muted2);cursor:default;font-size:10px;}
 
 /* ── PRESENCE ── */
-#presence-bar { padding:5px 12px; border-bottom:1px solid var(--border); background:rgba(0,0,0,0.3); display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-height:26px; }
-#presence-label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; flex-shrink:0; }
-.presence-pill { display:inline-flex; align-items:center; gap:4px; background:rgba(104,148,158,0.1); border:1px solid rgba(104,148,158,0.2); border-radius:20px; padding:2px 7px; font-size:10px; color:var(--mint); }
-.presence-dot { width:6px; height:6px; border-radius:50%; background:#5cb85c; flex-shrink:0; animation:pulse 2s infinite; }
-.presence-dot.me { background:var(--accent); animation:none; }
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+#presence-bar{padding:5px 10px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.2);display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:24px;flex-shrink:0;}
+#presence-label{font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.1em;flex-shrink:0;}
+.presence-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(104,148,158,0.08);border:1px solid rgba(104,148,158,0.18);border-radius:20px;padding:1px 6px;font-size:9px;color:var(--mint);}
+.presence-dot{width:5px;height:5px;border-radius:50%;background:#5cb85c;flex-shrink:0;animation:pulse 2s infinite;}
+.presence-dot.me{background:var(--accent);animation:none;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
 /* ── USER BAR ── */
-#user-bar { padding:4px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--bg); }
-#user-bar-name { font-size:10px; color:var(--muted); }
-#user-bar-name span { color:var(--mint); }
-#logout-btn { font-size:10px; color:var(--muted); background:none; border:none; cursor:pointer; text-decoration:underline; font-family:'DM Mono',monospace; }
+#user-bar{padding:4px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg);flex-shrink:0;}
+#user-bar-name{font-size:9px;color:var(--muted2);}
+#user-bar-name span{color:var(--mint);}
+#logout-btn{font-size:9px;color:var(--muted2);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:'DM Mono',monospace;}
 
-/* ── ACTIVE LAYER ── */
-#active-layer-bar { padding:7px 12px; border-bottom:1px solid var(--border); background:rgba(104,148,158,0.05); }
-#active-layer-bar label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; display:block; margin-bottom:4px; }
-#active-layer-select { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'DM Mono',monospace; font-size:11px; padding:5px 7px; border-radius:4px; outline:none; }
-#active-layer-select:focus { border-color:var(--accent); }
+/* ── CUSTOM LAYER DROPDOWN ── */
+#active-layer-bar{padding:6px 10px;border-bottom:1px solid var(--border);background:rgba(104,148,158,0.04);flex-shrink:0;}
+#active-layer-bar > label{font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:4px;}
+#custom-layer-dropdown{position:relative;width:100%;}
+#layer-dropdown-btn{
+  width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);
+  font-family:'DM Mono',monospace;font-size:11px;padding:5px 7px;border-radius:var(--radius);
+  cursor:pointer;display:flex;align-items:center;gap:6px;text-align:left;
+}
+#layer-dropdown-btn:hover{border-color:var(--accent);}
+.dd-swatch{width:11px;height:11px;flex-shrink:0;border:1.5px solid rgba(255,255,255,0.2);}
+.dd-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dd-arrow{color:var(--muted2);font-size:9px;flex-shrink:0;}
+.dd-badge{background:var(--teal);color:#fff;font-size:9px;padding:1px 5px;border-radius:10px;flex-shrink:0;min-width:16px;text-align:center;}
+#layer-dropdown-list{
+  position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:3000;
+  background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);
+  max-height:200px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+}
+.dd-option{display:flex;align-items:center;gap:6px;padding:6px 8px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--border);}
+.dd-option:last-child{border-bottom:none;}
+.dd-option:hover{background:rgba(104,148,158,0.1);}
+.dd-option.selected{background:rgba(104,148,158,0.15);color:var(--accent);}
+.dd-cnt{margin-left:auto;font-size:9px;color:var(--muted2);}
 
 /* ── BASEMAP ROW ── */
-#basemap-row { display:flex; align-items:center; gap:10px; padding:5px 12px; font-size:10px; color:var(--muted); border-bottom:1px solid var(--border); flex-wrap:wrap; }
-#basemap-row label { cursor:pointer; display:flex; align-items:center; gap:5px; }
+#basemap-row{display:flex;align-items:center;gap:10px;padding:5px 10px;font-size:10px;color:var(--muted);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+#basemap-row label{cursor:pointer;display:flex;align-items:center;gap:4px;}
 
-/* ── LAYERS LIST ── */
-#layers-section { flex:1; overflow-y:auto; padding:8px 0; }
-#layers-section::-webkit-scrollbar{width:4px;}
-#layers-section::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-.section-label { font-size:9px; letter-spacing:0.13em; text-transform:uppercase; color:var(--muted); padding:4px 12px 4px; }
-.layer-row { display:flex; align-items:center; gap:8px; padding:5px 12px; cursor:pointer; transition:background 0.1s; user-select:none; }
-.layer-row:hover{background:rgba(255,255,255,0.04);}
-.layer-row.hidden-layer{opacity:0.35;}
-.layer-icon{width:14px;height:14px;flex-shrink:0;border-radius:2px;border:1.5px solid rgba(255,255,255,0.16);}
+/* ── LAYERS ── */
+#layers-section{flex:1;overflow-y:auto;padding:6px 0;}
+#layers-section::-webkit-scrollbar{width:3px;}
+#layers-section::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.section-label{font-size:8px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted2);padding:5px 10px 3px;display:flex;align-items:center;justify-content:space-between;}
+.layer-row-wrap{display:flex;flex-direction:column;}
+.layer-row{display:flex;align-items:center;gap:6px;padding:4px 10px;cursor:pointer;transition:background 0.1s;user-select:none;}
+.layer-row:hover{background:rgba(255,255,255,0.03);}
+.layer-row.hidden-layer{opacity:0.3;}
+.layer-row.dragging{opacity:0.5;}
+.layer-row.drag-over{border-top:2px solid var(--accent);}
+.drag-handle{color:var(--muted2);font-size:13px;cursor:grab;flex-shrink:0;line-height:1;padding:0 2px;}
+.drag-handle:active{cursor:grabbing;}
+.layer-icon{width:12px;height:12px;flex-shrink:0;border-radius:2px;border:1.5px solid rgba(255,255,255,0.14);}
 .layer-icon.circle{border-radius:50%;}
-.layer-name{font-size:11px;flex:1;color:var(--text);}
-.layer-toggle{width:14px;height:14px;border:1px solid var(--border);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
+.layer-name{font-size:10px;flex:1;color:var(--text);}
+.layer-toggle{width:13px;height:13px;border:1px solid var(--border2);border-radius:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;}
 .layer-toggle:hover{border-color:var(--accent);}
 .layer-toggle.checked{background:var(--accent);border-color:var(--accent);color:#fff;}
-.layer-count{font-size:9px;color:var(--muted);min-width:20px;text-align:right;}
-.layer-remove{width:14px;height:14px;border:none;background:transparent;color:#e05252;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;}
+.layer-count{font-size:9px;color:var(--muted2);min-width:16px;text-align:right;}
+.layer-remove{width:13px;height:13px;border:none;background:transparent;color:#e05252;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;}
 .layer-row:hover .layer-remove{opacity:1;}
-.kmz-remove{width:14px;height:14px;border:none;background:transparent;color:#e05252;font-size:15px;cursor:pointer;flex-shrink:0;}
-.kmz-layer-row{padding-left:22px;}
+.kmz-remove{width:13px;height:13px;border:none;background:transparent;color:#e05252;font-size:14px;cursor:pointer;flex-shrink:0;}
+.kmz-layer-row{padding-left:20px;}
 
-/* ── TOTAL COUNT ── */
-#total-summary { padding:5px 12px; font-size:10px; color:var(--muted); border-top:1px solid var(--border); }
+/* ── OPACITY ROW ── */
+.opacity-row{display:none;align-items:center;gap:6px;padding:3px 10px 4px 28px;border-top:1px solid var(--border);}
+.opacity-row.visible{display:flex;}
+.op-label{font-size:9px;color:var(--muted2);flex-shrink:0;}
+.op-slider{flex:1;height:3px;accent-color:var(--accent);cursor:pointer;}
+.op-val{font-size:9px;color:var(--muted2);min-width:28px;text-align:right;}
 
-/* ── CREDIT FOOTER ── */
-#credit-footer { padding:6px 12px 8px; font-size:9px; color:var(--border); line-height:1.5; border-top:1px solid var(--border); flex-shrink:0; }
+/* ── TOTALS + CREDIT ── */
+#total-summary{padding:4px 10px;font-size:9px;color:var(--muted2);border-top:1px solid var(--border);flex-shrink:0;}
+#credit-footer{padding:5px 10px 7px;font-size:8px;color:var(--border2);line-height:1.5;flex-shrink:0;}
 
 /* ── BOTTOM PANEL ── */
-#bottom-panel{border-top:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:5px;}
-.tool-btn{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all 0.12s;width:100%;text-align:left;}
-.tool-btn:hover{border-color:var(--accent);background:rgba(104,148,158,0.08);}
-.tool-btn.active{background:rgba(104,148,158,0.18);border-color:var(--accent);color:var(--accent);}
-.tool-btn:disabled{opacity:0.35;cursor:not-allowed;}
+#bottom-panel{border-top:1px solid var(--border);padding:7px;display:flex;flex-direction:column;gap:5px;flex-shrink:0;}
+.tool-btn{display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;transition:all 0.1s;width:100%;text-align:left;}
+.tool-btn:hover{border-color:var(--accent);background:rgba(104,148,158,0.07);}
 .tool-btn svg{flex-shrink:0;}
 
-/* ── MAP ── */
+/* ── MAP WRAP ── */
 #map-wrap{flex:1;position:relative;display:flex;flex-direction:column;min-width:0;}
 #map{flex:1;width:100%;min-height:0;}
 #map.place-mode{cursor:crosshair;}
 
+/* ── COORDS ── */
+#coords-bar{
+  height:20px;background:rgba(13,17,23,0.85);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 10px;flex-shrink:0;
+}
+#coords-display{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace;letter-spacing:0.04em;}
+
+/* ── LOCATION BTN ── */
+#location-btn{position:absolute;bottom:30px;right:10px;z-index:999;width:32px;height:32px;border-radius:4px;background:var(--panel);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:all 0.12s;box-shadow:0 2px 8px rgba(0,0,0,0.4);}
+#location-btn:hover{background:var(--teal);color:#fff;}
+#location-btn.active{background:#1a4a7a;border-color:#4da6ff;color:#4da6ff;}
+
 /* ── LEAFLET ── */
 .leaflet-control-zoom{border:none!important;}
-.leaflet-control-zoom a{background:var(--panel)!important;color:var(--text)!important;border:1px solid var(--border)!important;}
+.leaflet-control-zoom a{background:var(--panel)!important;color:var(--text)!important;border:1px solid var(--border2)!important;width:28px!important;height:28px!important;line-height:28px!important;}
 .leaflet-control-zoom a:hover{background:var(--teal)!important;color:#fff!important;}
-.leaflet-control-scale-line{background:rgba(22,27,34,0.85)!important;border-color:var(--accent)!important;color:var(--text)!important;font-family:'DM Mono',monospace!important;font-size:10px!important;padding:2px 6px!important;}
-.leaflet-popup-content-wrapper{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:7px;font-family:'DM Mono',monospace;font-size:12px;box-shadow:0 6px 24px rgba(0,0,0,0.6);}
+.leaflet-control-scale-line{background:rgba(13,17,23,0.8)!important;border-color:var(--accent)!important;color:var(--text)!important;font-family:'DM Mono',monospace!important;font-size:9px!important;padding:1px 5px!important;}
+.leaflet-popup-content-wrapper{background:var(--panel);color:var(--text);border:1px solid var(--border2);border-radius:7px;font-family:'DM Mono',monospace;font-size:11px;box-shadow:0 6px 24px rgba(0,0,0,0.6);}
 .leaflet-popup-tip{background:var(--panel);}
-.leaflet-popup-close-button{color:var(--muted)!important;font-size:16px!important;top:8px!important;right:8px!important;}
-.leaflet-popup-content{margin:13px 15px!important;}
+.leaflet-popup-close-button{color:var(--muted)!important;font-size:15px!important;top:7px!important;right:7px!important;}
+.leaflet-popup-content{margin:12px 14px!important;}
 
-/* ── LOCATION ── */
+/* ── MARKER ANIMATION ── */
+.chaka-marker{transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1);}
+
+/* ── LOCATION DOT ── */
 .loc-dot{width:18px;height:18px;position:relative;display:flex;align-items:center;justify-content:center;}
 .loc-dot::before{content:'';width:12px;height:12px;background:#4da6ff;border-radius:50%;border:2px solid #fff;box-shadow:0 0 6px rgba(77,166,255,0.6);position:absolute;z-index:1;}
-.loc-pulse{width:36px;height:36px;background:rgba(77,166,255,0.2);border-radius:50%;position:absolute;animation:locpulse 2s infinite;}
+.loc-pulse{width:36px;height:36px;background:rgba(77,166,255,0.15);border-radius:50%;position:absolute;animation:locpulse 2s infinite;}
 @keyframes locpulse{0%{transform:scale(0.5);opacity:0.8}100%{transform:scale(1.5);opacity:0}}
-
-#location-btn{position:absolute;bottom:90px;right:10px;z-index:999;width:34px;height:34px;border-radius:4px;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.4);}
-#location-btn:hover{background:var(--teal);color:#fff;border-color:var(--teal);}
-#location-btn.active{background:#1a4a7a;border-color:#4da6ff;color:#4da6ff;}
 
 /* ── SEARCH PIN ── */
 .search-pin{display:flex;flex-direction:column;align-items:center;}
-.search-pin-head{width:20px;height:20px;background:#e05252;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);}
-.search-pin-stem{width:2px;height:8px;background:#e05252;margin-top:-1px;}
+.search-pin-head{width:18px;height:18px;background:#e05252;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid rgba(255,255,255,0.8);box-shadow:0 2px 6px rgba(0,0,0,0.5);}
+.search-pin-stem{width:2px;height:6px;background:#e05252;margin-top:-1px;}
 
 /* ── ANNOTATION LABELS ── */
-.map-label{background:rgba(22,27,34,0.82);color:#e6edf3;font-family:'DM Mono',monospace;font-size:10px;padding:2px 5px;border-radius:3px;white-space:nowrap;border:1px solid rgba(104,148,158,0.3);}
-.ann-text{background:rgba(22,27,34,0.88);color:#fff;font-family:'DM Mono',monospace;font-size:12px;padding:4px 8px;border-radius:4px;white-space:nowrap;border:1px solid rgba(255,255,255,0.15);cursor:pointer;}
-.measure-label{background:rgba(245,215,110,0.15);color:#f5d76e;font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid rgba(245,215,110,0.4);white-space:nowrap;}
+.map-label{background:rgba(13,17,23,0.8);color:#e6edf3;font-family:'DM Mono',monospace;font-size:9px;padding:1px 4px;border-radius:2px;white-space:nowrap;border:1px solid rgba(104,148,158,0.25);}
+.ann-text{background:rgba(13,17,23,0.85);font-family:'DM Mono',monospace;font-size:12px;font-weight:500;padding:3px 7px;border-radius:4px;white-space:nowrap;border:1px solid rgba(255,255,255,0.12);cursor:pointer;}
+.measure-label{background:rgba(245,215,110,0.12);color:#f5d76e;font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;border-radius:3px;border:1px solid rgba(245,215,110,0.35);white-space:nowrap;}
 
 /* ── CONTEXT MENU ── */
-#ctx-menu{position:fixed;z-index:8000;background:var(--panel);border:1px solid var(--border);border-radius:6px;min-width:190px;box-shadow:0 4px 16px rgba(0,0,0,0.5);padding:4px 0;display:none;}
-.ctx-item{padding:7px 13px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);transition:background 0.1s;}
-.ctx-item:hover{background:rgba(104,148,158,0.15);color:var(--mint);}
-.ctx-sep{height:1px;background:var(--border);margin:3px 0;}
+#ctx-menu{position:fixed;z-index:8000;background:var(--panel);border:1px solid var(--border2);border-radius:6px;min-width:185px;box-shadow:0 4px 16px rgba(0,0,0,0.5);padding:3px 0;display:none;}
+.ctx-item{padding:6px 12px;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:7px;color:var(--text);transition:background 0.1s;}
+.ctx-item:hover{background:rgba(104,148,158,0.12);color:var(--mint);}
+.ctx-sep{height:1px;background:var(--border);margin:2px 0;}
 
 /* ── POPUPS ── */
 .popup-form{min-width:230px;}
-.popup-form h3{font-family:'Syne',sans-serif;font-size:13px;margin-bottom:10px;color:var(--mint);display:flex;align-items:center;}
-.popup-form label{font-size:10px;color:var(--muted);display:block;margin-bottom:3px;margin-top:8px;letter-spacing:0.08em;text-transform:uppercase;}
-.popup-form input,.popup-form textarea,.popup-form select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:5px 7px;border-radius:4px;outline:none;}
+.popup-form h3{font-family:'Syne',sans-serif;font-size:12px;margin-bottom:9px;color:var(--mint);display:flex;align-items:center;}
+.popup-form label{font-size:9px;color:var(--muted);display:block;margin-bottom:2px;margin-top:7px;letter-spacing:0.08em;text-transform:uppercase;}
+.popup-form input,.popup-form textarea,.popup-form select{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:5px 6px;border-radius:var(--radius);outline:none;}
 .popup-form input:focus,.popup-form textarea:focus,.popup-form select:focus{border-color:var(--accent);}
-.popup-form textarea{resize:vertical;min-height:48px;}
-.popup-form .popup-btns{display:flex;gap:6px;margin-top:11px;}
-.btn-save{flex:1;padding:6px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.popup-form textarea{resize:vertical;min-height:44px;}
+.popup-form .popup-btns{display:flex;gap:5px;margin-top:10px;}
+.btn-save{flex:1;padding:5px;background:var(--teal);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
 .btn-save:hover{background:var(--accent);}
-.btn-cancel{padding:6px 10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
-.btn-delete{padding:6px 10px;background:transparent;color:#e05252;border:1px solid #e05252;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
-.point-popup h3{font-family:'Syne',sans-serif;font-size:13px;margin-bottom:5px;display:flex;align-items:center;}
-.point-popup .meta{font-size:10px;color:var(--muted);margin-bottom:7px;}
-.point-popup .notes{font-size:11px;background:var(--bg);padding:6px 8px;border-radius:4px;border:1px solid var(--border);margin-bottom:7px;}
-.point-popup .edit-btn{width:100%;padding:5px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
-.parcel-popup{min-width:200px;}
-.parcel-title{font-family:'Syne',sans-serif;font-size:13px;color:var(--mint);margin-bottom:8px;}
-.parcel-table{width:100%;border-collapse:collapse;font-size:11px;}
-.parcel-table td{padding:3px 6px 3px 0;vertical-align:top;}
-.parcel-table td:first-child{color:var(--muted);white-space:nowrap;padding-right:10px;}
-.parcel-note{font-size:9px;color:var(--muted);margin-top:8px;opacity:0.7;}
+.btn-cancel{padding:5px 9px;background:transparent;color:var(--muted);border:1px solid var(--border2);border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.btn-delete{padding:5px 9px;background:transparent;color:#e05252;border:1px solid #e05252;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.point-popup h3{font-family:'Syne',sans-serif;font-size:12px;margin-bottom:4px;display:flex;align-items:center;}
+.point-popup .meta{font-size:9px;color:var(--muted);margin-bottom:6px;}
+.point-popup .notes{font-size:10px;background:var(--bg);padding:5px 7px;border-radius:var(--radius);border:1px solid var(--border2);margin-bottom:6px;}
+.point-popup .edit-btn{flex:1;padding:5px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
+.sv-popup-btn{padding:5px 8px;background:transparent;color:#4da6ff;border:1px solid #4da6ff;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
+.attr-row{display:flex;align-items:baseline;gap:5px;font-size:9px;margin-top:3px;}
+.attr-key{color:var(--muted2);min-width:52px;flex-shrink:0;}
+.attr-val{color:var(--text);}
+.attr-val.muted{color:var(--muted2);}
+.attr-date{color:var(--muted2);font-size:8px;}
+.parcel-popup{min-width:195px;}
+.parcel-title{font-family:'Syne',sans-serif;font-size:12px;color:var(--mint);margin-bottom:6px;}
+.parcel-table{width:100%;border-collapse:collapse;font-size:10px;}
+.parcel-table td{padding:2px 5px 2px 0;vertical-align:top;}
+.parcel-table td:first-child{color:var(--muted);white-space:nowrap;padding-right:8px;}
+.parcel-actions{margin-top:7px;}
+.parcel-sv-btn{padding:4px 8px;background:transparent;color:#4da6ff;border:1px solid #4da6ff;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
+.parcel-note{font-size:8px;color:var(--muted2);margin-top:6px;}
 
 /* ── MODALS ── */
-.modal-overlay{position:fixed;inset:0;z-index:8500;background:rgba(13,17,23,0.8);display:none;align-items:center;justify-content:center;}
+.modal-overlay{position:fixed;inset:0;z-index:8500;background:rgba(13,17,23,0.82);display:none;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
-.modal-box{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:22px;width:300px;display:flex;flex-direction:column;gap:11px;}
-.modal-box h3{font-family:'Syne',sans-serif;font-size:14px;color:var(--mint);}
-.modal-box label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:4px;}
-.modal-box input,.modal-box select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:6px 8px;border-radius:4px;outline:none;}
+.modal-box{background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:20px;width:290px;display:flex;flex-direction:column;gap:10px;}
+.modal-box h3{font-family:'Syne',sans-serif;font-size:13px;color:var(--mint);}
+.modal-box p{font-size:10px;color:var(--muted2);}
+.modal-box label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:3px;}
+.modal-box input,.modal-box select{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:5px 7px;border-radius:var(--radius);outline:none;}
 .modal-box input:focus{border-color:var(--accent);}
-.modal-btns{display:flex;gap:8px;}
-.modal-btn-save{flex:1;padding:7px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
-.modal-btn-cancel{padding:7px 12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
-.alb-color-row{display:flex;align-items:center;gap:10px;}
-#alb-color{width:44px;height:32px;padding:2px;border-radius:4px;border:1px solid var(--border);background:var(--bg);cursor:pointer;}
-#alb-preview{width:20px;height:20px;border-radius:2px;border:1.5px solid rgba(255,255,255,0.18);flex-shrink:0;background:#e05252;}
+.modal-btns{display:flex;gap:7px;}
+.modal-btn-save{flex:1;padding:6px;background:var(--teal);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.modal-btn-cancel{padding:6px 11px;background:transparent;color:var(--muted);border:1px solid var(--border2);border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
+.alb-color-row{display:flex;align-items:center;gap:8px;}
+#alb-color{width:40px;height:28px;padding:2px;border-radius:3px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;}
+#alb-preview{width:18px;height:18px;border-radius:2px;border:1.5px solid rgba(255,255,255,0.15);flex-shrink:0;background:#e05252;}
 
 /* ── LOGIN ── */
 #login-overlay{position:fixed;inset:0;z-index:9999;background:rgba(13,17,23,0.97);display:flex;align-items:center;justify-content:center;}
-#login-box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:32px 36px;width:320px;display:flex;flex-direction:column;gap:16px;}
-#login-box h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.06em;}
-#login-box p{font-size:11px;color:var(--muted);margin-top:-8px;}
-.login-field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:5px;}
-.login-field input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:8px 10px;border-radius:5px;outline:none;}
+#login-box{background:var(--panel);border:1px solid var(--border2);border-radius:10px;padding:28px 32px;width:310px;display:flex;flex-direction:column;gap:14px;}
+#login-box h2{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.06em;}
+#login-box p{font-size:10px;color:var(--muted);margin-top:-6px;}
+.login-field label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;display:block;margin-bottom:4px;}
+.login-field input{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:7px 9px;border-radius:var(--radius);outline:none;}
 .login-field input:focus{border-color:var(--accent);}
-#login-err{font-size:11px;color:#e05252;display:none;}
-#login-submit{background:var(--teal);color:#fff;border:none;font-family:'DM Mono',monospace;font-size:12px;padding:10px;border-radius:5px;cursor:pointer;width:100%;}
+#login-err{font-size:10px;color:#e05252;display:none;}
+#login-submit{background:var(--teal);color:#fff;border:none;font-family:'DM Mono',monospace;font-size:12px;padding:9px;border-radius:var(--radius);cursor:pointer;width:100%;}
 #login-submit:hover{background:var(--accent);}
 
 /* ── TOAST ── */
-#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;font-family:'DM Mono',monospace;font-size:12px;padding:8px 18px;border-radius:20px;opacity:0;transition:opacity 0.25s;pointer-events:none;z-index:9999;white-space:nowrap;}
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:20px;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:9999;white-space:nowrap;}
 #toast.show{opacity:1;}
 </style>
 </head>
 <body>
 
-<!-- DRAWING TOOLBAR (top center, Nearmap-style) -->
+<!-- TOOLBAR -->
 <div id="draw-toolbar">
-  <div class="toolbar-group">
-    <button class="toolbar-btn active" id="place-btn" onclick="Points.togglePlaceMode()" title="Place point (P)">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-      <span>Place Point: ON</span>
-    </button>
-  </div>
-  <div class="toolbar-group">
-    <button class="toolbar-btn" id="tool-line" onclick="Annotations.setTool('line')" title="Draw line">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
-      Line
-    </button>
-    <button class="toolbar-btn" id="tool-shape" onclick="Annotations.setTool('shape')" title="Draw shape">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 21,21 3,21"/></svg>
-      Shape
-    </button>
-    <button class="toolbar-btn" id="tool-text" onclick="Annotations.setTool('text')" title="Place text">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
-      Text
-    </button>
-    <button class="toolbar-btn" id="tool-measure" onclick="Annotations.setTool('measure')" title="Measure distance">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M2 12l4-4M2 12l4 4M22 12l-4-4M22 12l-4 4"/></svg>
-      Measure
-    </button>
-    <button class="toolbar-btn" id="tool-erase" onclick="Annotations.setTool('erase')" title="Erase annotation">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l13-13 4 4-9 9"/></svg>
-      Erase
-    </button>
-  </div>
-  <div class="toolbar-group">
-    <button class="toolbar-btn" id="undo-btn" onclick="Layers.undo()" disabled title="Undo (Ctrl+Z)">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
-      Undo
-    </button>
-  </div>
-  <div class="toolbar-group">
-    <button class="toolbar-btn" onclick="UI.exportGeoJSON()" title="Export all points as GeoJSON">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Export
-    </button>
-  </div>
+  <button class="toolbar-btn active" id="place-btn" onclick="Points.togglePlaceMode()" title="Place point">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    <span>Place Point: ON</span>
+    <div class="tt">Click map to place · P to toggle</div>
+  </button>
+  <span id="active-pt-badge" style="font-size:9px;color:var(--muted2);margin-left:2px"></span>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="toolbar-btn" id="tool-line" data-tool onclick="Annotations.setTool('line')" title="Draw line">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+    Line
+    <div class="tt">Click points · Double-click to finish</div>
+  </button>
+  <button class="toolbar-btn" id="tool-shape" data-tool onclick="Annotations.setTool('shape')" title="Draw shape">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 21,21 3,21"/></svg>
+    Shape
+    <div class="tt">Click points · Double-click to close</div>
+  </button>
+  <button class="toolbar-btn" id="tool-text" data-tool onclick="Annotations.setTool('text')" title="Place text">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+    Text
+    <div class="tt">Click map to place text</div>
+  </button>
+  <button class="toolbar-btn" id="tool-measure" data-tool onclick="Annotations.setTool('measure')" title="Measure distance">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>
+    Measure
+    <div class="tt">Click points · Double-click to finish</div>
+  </button>
+  <button class="toolbar-btn" id="tool-erase" data-tool onclick="Annotations.setTool('erase')" title="Erase annotation">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l13-13 4 4-9 9"/></svg>
+    Erase
+    <div class="tt">Click annotation to delete</div>
+  </button>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="toolbar-btn" id="sv-btn" onclick="Points.setSVMode(true)" title="Street View">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+    Street View
+    <div class="tt">Click map to open Street View</div>
+  </button>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="toolbar-btn" id="undo-btn" onclick="Layers.undo()" disabled title="Undo (Ctrl+Z)">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+    Undo
+    <div class="tt">Ctrl+Z</div>
+  </button>
+  <button class="toolbar-btn" onclick="UI.exportGeoJSON()" title="Export GeoJSON">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Export
+  </button>
+
   <div id="toolbar-version"></div>
+  <div id="toolbar-hint"></div>
 </div>
 
-<!-- MAIN AREA -->
+<!-- DRAW OPTIONS BAR -->
+<div id="draw-options-bar">
+  <label>Color</label>
+  <input type="color" id="draw-color-input" value="#4da6ff" oninput="Annotations.setDrawColor(this.value)"/>
+  <div class="opt-sep"></div>
+  <label>Thickness</label>
+  <input type="range" id="draw-thickness" min="1" max="8" value="2" oninput="Annotations.setDrawThickness(this.value)"/>
+  <div class="opt-sep"></div>
+  <label>Label</label>
+  <input type="text" id="draw-label-input" placeholder="Optional label…" oninput="Annotations.setDrawLabel(this.value)"/>
+</div>
+
+<!-- MAIN -->
 <div id="main">
 
 <!-- SIDEBAR -->
@@ -289,54 +411,55 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
   </div>
 
   <div id="active-layer-bar">
-    <label>Active layer (click map to place):</label>
-    <select id="active-layer-select" onchange="Layers.saveActiveLayer(this.value)"></select>
+    <label>Active layer</label>
+    <div id="custom-layer-dropdown"></div>
   </div>
 
   <div id="basemap-row">
-    <label><input type="checkbox" id="labels-toggle" onchange="UI.toggleLabels(this.checked)"> Point labels</label>
-    <label><input type="checkbox" id="street-labels-toggle" onchange="UI.toggleStreetLabels(this.checked)" checked> Street labels</label>
+    <label><input type="checkbox" id="labels-toggle" onchange="UI.toggleLabels(this.checked)"> Labels</label>
+    <label><input type="checkbox" id="street-labels-toggle" onchange="UI.toggleStreetLabels(this.checked)" checked> Streets</label>
   </div>
 
   <div id="layers-section">
     <div class="section-label">Large Signs</div>
     <div id="large-layers-list"></div>
-    <div class="section-label" style="margin-top:5px">Small Signs</div>
+    <div class="section-label" style="margin-top:4px">Small Signs</div>
     <div id="small-layers-list"></div>
-    <div class="section-label" style="margin-top:5px">Base Layers</div>
+    <div class="section-label" style="margin-top:4px">Base Layers</div>
     <div id="parcel-layer-row"></div>
     <div id="kmz-layers-section" style="display:none">
-      <div class="section-label" style="margin-top:5px">Overlays</div>
+      <div class="section-label" style="margin-top:4px">Overlays</div>
       <div id="kmz-layers-list"></div>
     </div>
     <div id="custom-layers-section" style="display:none">
-      <div class="section-label" style="margin-top:5px">Custom Layers</div>
+      <div class="section-label" style="margin-top:4px">Custom Layers</div>
       <div id="custom-layers-list"></div>
     </div>
   </div>
 
   <div id="total-summary"><span id="total-count">0 points</span></div>
-
   <div id="credit-footer">Created by Brent Billington<br>Chaka Campaign — Place 5</div>
 
   <div id="bottom-panel">
     <button class="tool-btn" onclick="UI.openAddLayer()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Custom Layer
     </button>
     <button class="tool-btn" onclick="UI.triggerKmzUpload()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Import KMZ / GeoJSON
     </button>
   </div>
 </div>
 
-<!-- MAP -->
+<!-- MAP WRAP -->
 <div id="map-wrap">
   <div id="map"></div>
+  <div id="coords-bar"><span id="coords-display">—</span></div>
   <button id="location-btn" onclick="UI.toggleMyLocation()" title="My location">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2" opacity="0.4"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2" opacity="0.4"/></svg>
   </button>
+  <button id="collapse-btn" onclick="UI.toggleSidebar()" title="Toggle sidebar">‹</button>
 </div>
 
 </div><!-- #main -->
@@ -357,7 +480,7 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
 <div id="add-layer-modal" class="modal-overlay">
   <div class="modal-box">
     <h3>Add Custom Layer</h3>
-    <div><label>Layer Name</label><input id="alb-name" type="text" placeholder="e.g. Priority Locations"/></div>
+    <div><label>Name</label><input id="alb-name" type="text" placeholder="e.g. Priority Locations"/></div>
     <div><label>Shape</label><select id="alb-shape" onchange="UI.updateAlbPreview()"><option value="circle">Circle (small)</option><option value="square">Square (large)</option></select></div>
     <div><label>Color</label>
       <div class="alb-color-row">
@@ -366,54 +489,48 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
         <span style="font-size:10px;color:var(--muted)" id="alb-color-hex">#e05252</span>
       </div>
     </div>
-    <div class="modal-btns">
-      <button class="modal-btn-save" onclick="UI.confirmAddLayer()">Add Layer</button>
-      <button class="modal-btn-cancel" onclick="UI.closeAddLayer()">Cancel</button>
-    </div>
+    <div class="modal-btns"><button class="modal-btn-save" onclick="UI.confirmAddLayer()">Add Layer</button><button class="modal-btn-cancel" onclick="UI.closeAddLayer()">Cancel</button></div>
   </div>
 </div>
 
-<!-- IMPORT LAYER PICKER MODAL -->
+<!-- IMPORT LAYER PICKER -->
 <div id="import-layer-modal" class="modal-overlay">
   <div class="modal-box">
-    <h3>Import Points — Choose Layer</h3>
-    <p style="font-size:10px;color:var(--muted)">Which layer should the imported points go on?</p>
+    <h3>Import Points</h3>
+    <p>Which layer should these points go on?</p>
     <div><label>Layer</label><select id="imp-layer-select"></select></div>
-    <div class="modal-btns">
-      <button class="modal-btn-save" onclick="UI.confirmImportLayer()">Import</button>
-      <button class="modal-btn-cancel" onclick="UI.closeImportLayer()">Cancel</button>
-    </div>
+    <div class="modal-btns"><button class="modal-btn-save" onclick="UI.confirmImportLayer()">Import</button><button class="modal-btn-cancel" onclick="UI.closeImportLayer()">Cancel</button></div>
   </div>
 </div>
 
-<!-- LAYER PICKER FOR PIN SAVE -->
+<!-- LAYER PICKER FOR PIN -->
 <div id="layer-pick-modal" class="modal-overlay">
   <div class="modal-box">
     <h3>Save Pin as Point</h3>
-    <div><label>Name / Label</label><input id="lp-name" type="text" placeholder="Address or label"/></div>
-    <div><label>Save to Layer</label><select id="lp-layer-select"></select></div>
-    <div class="modal-btns">
-      <button class="modal-btn-save" onclick="UI.confirmLayerPick()">Save</button>
-      <button class="modal-btn-cancel" onclick="UI.closeLayerPick()">Cancel</button>
-    </div>
+    <div><label>Name</label><input id="lp-name" type="text" placeholder="Address or label"/></div>
+    <div><label>Layer</label><select id="lp-layer-select"></select></div>
+    <div class="modal-btns"><button class="modal-btn-save" onclick="UI.confirmLayerPick()">Save</button><button class="modal-btn-cancel" onclick="UI.closeLayerPick()">Cancel</button></div>
   </div>
 </div>
 
 <!-- CONTEXT MENU -->
 <div id="ctx-menu">
   <div class="ctx-item" onclick="UI.ctxPlace()">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
     <span id="ctx-place-label">Place point here</span>
   </div>
   <div class="ctx-item" id="ctx-paste-item" onclick="UI.ctxPaste()" style="display:none">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
     Paste Point
+  </div>
+  <div class="ctx-item" onclick="UI.ctxStreetView()">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+    Street View here
   </div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" onclick="UI.hideCtxMenu()">Cancel</div>
 </div>
 
-<!-- FILE INPUT -->
 <input type="file" id="kmz-file-input" accept=".kmz,.kml,.geojson,.json" style="display:none" onchange="UI.handleKmzUpload(event)">
 <div id="toast"></div>
 
@@ -428,10 +545,8 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
 
 <script>
 (function() {
-  // Version display
   document.getElementById('toolbar-version').textContent = CONFIG.VERSION;
 
-  // Map
   const map = L.map('map', {
     center: CONFIG.MAP_CENTER, zoom: CONFIG.MAP_ZOOM,
     minZoom: CONFIG.MIN_ZOOM, maxZoom: CONFIG.MAX_ZOOM,
@@ -447,19 +562,18 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
 
   const streetLabels = L.tileLayer(
     'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
-    { subdomains:'abcd', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:19, opacity:0.95 }
+    { subdomains:'abcd', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:19, opacity:0.9 }
   ).addTo(map);
 
-  // Init modules in correct order
+  // Init all modules
   Layers.init(map);
   ParcelsLayer.init(map);
   Points.init(map, allPoints => Sync.savePoints(allPoints));
   Annotations.init(map, anns => Sync.saveAnnotations(anns));
   UI.init(map, streetLabels, username => {
-    // On login: start sync and presence
     Sync.startRefresh(data => {
       Layers.loadFromSheets(data.points || {}, null);
-      Points.renderAll();  // re-renders with correct _onMarkerClick handler
+      Points.renderAll();
       if (data.annotations) Annotations.loadFromSheets(data.annotations);
     });
     Sync.startPresence(
@@ -470,7 +584,6 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
     Presence.render({});
   });
 
-  // Expose map globally for popup close calls
   window.map = map;
 })();
 </script>

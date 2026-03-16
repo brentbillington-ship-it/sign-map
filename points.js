@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// points.js — Placement, popups, edit/delete, copy/paste, keyboard
+// points.js — v3.1c — Placement, popups, attribution, street view, undo
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Points = (() => {
@@ -7,6 +7,7 @@ const Points = (() => {
   let selectedPoint = null;
   let copiedPoint   = null;
   let placeMode     = true;
+  let svMode        = false;   // street view click mode
   let onSave        = null;
 
   function init(map, onSaveCallback) {
@@ -15,6 +16,8 @@ const Points = (() => {
 
     map.on('click', e => {
       UI.hideCtxMenu();
+      // Street View mode
+      if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
       if (!placeMode) { deselect(); return; }
       const layerId = UI.getActiveLayerId();
       openNewPopup(e.latlng, layerId);
@@ -28,29 +31,43 @@ const Points = (() => {
         hasCopy: !!copiedPoint,
         onPlace: () => openNewPopup(e.latlng, layerId),
         onPaste: () => pasteAt(e.latlng),
+        onStreetView: () => _openStreetView(e.latlng.lat, e.latlng.lng),
       });
     });
 
     document.addEventListener('keydown', _handleKey);
   }
 
+  // ── STREET VIEW ───────────────────────────────────────────────────────────────
+  function _openStreetView(lat, lng) {
+    window.open(`https://www.google.com/maps?q=&layer=c&cbll=${lat},${lng}`, '_blank');
+  }
+
+  function setSVMode(on) {
+    svMode = on;
+    const btn = document.getElementById('sv-btn');
+    if (btn) btn.classList.toggle('active', on);
+    mapRef.getContainer().style.cursor = on ? 'crosshair' : '';
+    if (on && placeMode) { placeMode = false; _updatePlaceBtn(); }
+  }
+
   // ── PLACE MODE ───────────────────────────────────────────────────────────────
   function togglePlaceMode() {
     placeMode = !placeMode;
+    if (placeMode) { svMode = false; setSVMode(false); }
+    _updatePlaceBtn();
     document.getElementById('map').classList.toggle('place-mode', placeMode);
+  }
+
+  function _updatePlaceBtn() {
     const btn = document.getElementById('place-btn');
-    if (btn) {
-      btn.classList.toggle('active', placeMode);
-      btn.querySelector('span').textContent = `Place Point: ${placeMode?'ON':'OFF'}`;
-    }
+    if (!btn) return;
+    btn.classList.toggle('active', placeMode);
+    btn.querySelector('span').textContent = `Place Point: ${placeMode?'ON':'OFF'}`;
   }
 
-  function setPlaceMode(val) {
-    placeMode = val;
-    document.getElementById('map').classList.toggle('place-mode', placeMode);
-  }
-
-  function isPlaceMode() { return placeMode; }
+  function setPlaceMode(val) { placeMode = val; _updatePlaceBtn(); document.getElementById('map').classList.toggle('place-mode', val); }
+  function isPlaceMode()     { return placeMode; }
 
   // ── SELECTION ────────────────────────────────────────────────────────────────
   function select(layerId, ptId) {
@@ -77,24 +94,33 @@ const Points = (() => {
   // ── VIEW POPUP ───────────────────────────────────────────────────────────────
   function _showViewPopup(layerId, pt, marker) {
     const def = Layers.getDef(layerId);
+    const addedBy  = pt.addedBy  ? `<span class="attr-val">${_esc(pt.addedBy)}</span>` : '<span class="attr-val muted">—</span>';
+    const editedBy = pt.editedBy ? `<span class="attr-val">${_esc(pt.editedBy)}</span>${pt.editedAt?` <span class="attr-date">${_esc(pt.editedAt)}</span>`:''}` : '<span class="attr-val muted">—</span>';
+
     const div = document.createElement('div');
     div.className = 'point-popup';
     div.innerHTML = `
       <h3>${_swatchHtml(def,12)}${_esc(pt.name||'Unnamed')}</h3>
       <div class="meta">${_esc(def.name)}</div>
       ${pt.notes?`<div class="notes">${_esc(pt.notes)}</div>`:''}
-      <button class="edit-btn" onclick="Points.openEditPopup('${layerId}','${pt.id}')">✎ Edit / Change Layer</button>
+      <div class="attr-row"><span class="attr-key">Added by</span>${addedBy}</div>
+      <div class="attr-row"><span class="attr-key">Edited by</span>${editedBy}</div>
+      <div class="popup-btns" style="margin-top:8px">
+        <button class="edit-btn" onclick="Points.openEditPopup('${layerId}','${pt.id}')">✎ Edit</button>
+        <button class="sv-popup-btn" onclick="Points.streetViewAt(${pt.lat},${pt.lng})">📷 Street View</button>
+      </div>
     `;
     marker.bindPopup(div, { maxWidth:300 }).openPopup();
     marker.on('popupclose', deselect);
   }
+
+  function streetViewAt(lat, lng) { _openStreetView(lat, lng); }
 
   // ── EDIT POPUP ───────────────────────────────────────────────────────────────
   function openEditPopup(layerId, ptId) {
     const pt = Layers.findPoint(layerId, ptId);
     if (!pt) return;
     mapRef.closePopup();
-    const def = Layers.getDef(layerId);
     const div = _buildForm(layerId, pt, false);
     L.popup({ maxWidth:320 }).setLatLng([pt.lat,pt.lng]).setContent(div).openOn(mapRef);
     div.querySelector('.btn-save').onclick   = () => _saveEdit(layerId, ptId, pt.lat, pt.lng);
@@ -120,7 +146,10 @@ const Points = (() => {
       <h3>${_swatchHtml(def,13,'ef-swatch')} ${isNew?'New Point':'Edit Point'}</h3>
       <label>Layer</label>
       <select id="ef-layer">
-        ${Object.values(Layers.getDefs()).map(d=>`<option value="${d.id}"${d.id===layerId?' selected':''}>${_esc(d.name)}</option>`).join('')}
+        ${Layers.getOrder().filter(id=>Layers.getDef(id)).map(id=>{
+          const d=Layers.getDef(id);
+          return `<option value="${d.id}"${d.id===layerId?' selected':''}>${_esc(d.name)}</option>`;
+        }).join('')}
       </select>
       <label>Name / Label</label>
       <input id="ef-name" type="text" value="${_esc(pt.name||'')}" placeholder="Address or label"/>
@@ -145,10 +174,24 @@ const Points = (() => {
     const newLayerId = document.getElementById('ef-layer').value;
     const name  = (document.getElementById('ef-name').value ||'').trim();
     const notes = (document.getElementById('ef-notes').value||'').trim();
+    const user  = typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '';
+    const now   = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
+
+    // Duplicate check
+    if (Layers.checkDuplicate(newLayerId, lat, lng)) {
+      if (!confirm('A point already exists within 10m on this layer. Add anyway?')) return;
+    }
+
     Layers.pushUndo(Layers.getAllPoints());
-    Layers.addPoint(newLayerId, { id:ptId, lat, lng, name, notes });
+    Layers.addPoint(newLayerId, { id:ptId, lat, lng, name, notes, addedBy:user, addedAt:now, editedBy:'', editedAt:'' });
     UI.setActiveLayer(newLayerId);
     Layers.renderLayer(newLayerId, selectedPoint, _onMarkerClick);
+    // Animate new marker
+    setTimeout(() => {
+      const el = document.querySelector(`.chaka-marker`);
+      if (el) el.style.transform = 'scale(1.4)';
+      setTimeout(() => { if(el) el.style.transform = 'scale(1)'; }, 150);
+    }, 50);
     mapRef.closePopup();
     UI.toast('Point added');
     onSave(Layers.getAllPoints());
@@ -158,8 +201,11 @@ const Points = (() => {
     const newLayerId = document.getElementById('ef-layer').value;
     const name  = (document.getElementById('ef-name').value ||'').trim();
     const notes = (document.getElementById('ef-notes').value||'').trim();
+    const user  = typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '';
+    const now   = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
+
     Layers.pushUndo(Layers.getAllPoints());
-    Layers.movePoint(origLayerId, newLayerId, ptId, { name, notes });
+    Layers.movePoint(origLayerId, newLayerId, ptId, { name, notes, editedBy:user, editedAt:now });
     UI.setActiveLayer(newLayerId);
     Layers.renderLayer(origLayerId, selectedPoint, _onMarkerClick);
     if (newLayerId !== origLayerId) Layers.renderLayer(newLayerId, selectedPoint, _onMarkerClick);
@@ -188,9 +234,10 @@ const Points = (() => {
   function pasteAt(latlng) {
     if (!copiedPoint) return;
     Layers.pushUndo(Layers.getAllPoints());
-    const ptId  = 'pt_' + Date.now();
-    const newPt = { ...copiedPoint.pt, id:ptId, lat:latlng.lat, lng:latlng.lng };
-    Layers.addPoint(copiedPoint.layerId, newPt);
+    const user = typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '';
+    const now  = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
+    const ptId = 'pt_' + Date.now();
+    Layers.addPoint(copiedPoint.layerId, { ...copiedPoint.pt, id:ptId, lat:latlng.lat, lng:latlng.lng, addedBy:user, addedAt:now, editedBy:'', editedAt:'' });
     Layers.renderLayer(copiedPoint.layerId, selectedPoint, _onMarkerClick);
     UI.toast('Point pasted');
     onSave(Layers.getAllPoints());
@@ -207,10 +254,11 @@ const Points = (() => {
     if (e.key==='Delete' && selectedPoint) {
       if (confirm('Delete selected point?')) deletePoint(selectedPoint.layerId, selectedPoint.ptId);
     }
+    if (e.key==='Escape') { setSVMode(false); Annotations.clearTool && Annotations.clearTool(); }
   }
 
   function renderAll() { Layers.renderAll(selectedPoint, _onMarkerClick); }
-  // ── HELPERS ──────────────────────────────────────────────────────────────────
+
   function _swatchHtml(def, size, id='') {
     if (!def) return '';
     return `<span ${id?`id="${id}"`:''} style="display:inline-block;width:${size}px;height:${size}px;background:${def.color};border-radius:${def.shape==='circle'?'50%':'2px'};border:1.5px solid rgba(255,255,255,0.22);flex-shrink:0;vertical-align:middle;margin-right:5px;"></span>`;
@@ -219,9 +267,9 @@ const Points = (() => {
   function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   return {
-    init, togglePlaceMode, setPlaceMode, isPlaceMode,
+    init, togglePlaceMode, setPlaceMode, isPlaceMode, setSVMode,
     select, deselect, getSelected, getCopied,
-    openEditPopup, openNewPopup,
+    openEditPopup, openNewPopup, streetViewAt,
     deletePoint, copySelected, pasteAt, pasteAtCenter,
     renderAll,
   };
