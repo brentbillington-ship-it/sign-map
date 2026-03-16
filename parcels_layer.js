@@ -43,8 +43,8 @@ const ParcelsLayer = (() => {
         });
       },
     }).addTo(mapRef);
-    // Enable identify immediately — parcels interactive by default
-    setIdentifyMode(true);
+    // Enable pointer events immediately since identify is on by default
+    setTimeout(() => setIdentifyMode(true), 0);
   }
 
   // ── IDENTIFY MODE ────────────────────────────────────────────────────────────

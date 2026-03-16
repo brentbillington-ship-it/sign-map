@@ -67,8 +67,7 @@ const Annotations = (() => {
     _hideOptionsBar();
     _setStatusHint(null);
     if (typeof Points !== 'undefined') Points.setDrawToolActive(false);
-    // Re-enable parcel identify
-    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(true);
+    // points.js setDrawToolActive handles restoring identify correctly
   }
 
   function getActiveTool() { return activeTool; }

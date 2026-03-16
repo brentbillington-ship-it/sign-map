@@ -6,8 +6,9 @@ const Points = (() => {
   let mapRef        = null;
   let selectedPoint = null;
   let copiedPoint   = null;
-  let drawToolActive = false;  // true when an annotation draw tool is running
+  let drawToolActive = false;
   let svMode        = false;
+  let placeMode     = false;  // OFF by default — parcel identify is default
   let onSave        = null;
 
   function init(map, onSaveCallback) {
@@ -17,8 +18,8 @@ const Points = (() => {
     map.on('click', e => {
       UI.hideCtxMenu();
       if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
-      if (drawToolActive) return;   // draw tool has priority
-      // Always place a point — no mode toggle needed
+      if (!placeMode) return;  // parcel identify handles clicks when place mode off
+      if (drawToolActive) return;
       const layerId = UI.getActiveLayerId();
       openNewPopup(e.latlng, layerId);
     });
@@ -36,15 +37,18 @@ const Points = (() => {
     });
 
     document.addEventListener('keydown', _handleKey);
-    // Set crosshair cursor to indicate always-place mode
-    map.getContainer().style.cursor = 'crosshair';
+    // Start with parcel identify on, place mode off
+    map.getContainer().style.cursor = 'default';
   }
 
   // ── DRAW TOOL STATE (called by Annotations) ───────────────────────────────────
   function setDrawToolActive(val) {
     drawToolActive = val;
-    // When draw tool is active, cursor is handled by Annotations
-    if (!val && !svMode) map.getContainer().style.cursor = 'crosshair';
+    if (!val && !svMode) {
+      // Restore identify when draw tool exits (unless place mode is on)
+      if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
+      map.getContainer().style.cursor = placeMode ? 'crosshair' : 'default';
+    }
   }
 
   function isDrawToolActive() { return drawToolActive; }
@@ -58,12 +62,38 @@ const Points = (() => {
     svMode = on;
     const btn = document.getElementById('sv-btn');
     if (btn) btn.classList.toggle('active', on);
-    map.getContainer().style.cursor = on ? 'crosshair' : (drawToolActive ? '' : 'crosshair');
-    // Disable parcel identify while in SV mode, restore when done
-    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!on);
+    if (on) {
+      // SV mode: disable parcel identify, set crosshair
+      if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(false);
+      map.getContainer().style.cursor = 'crosshair';
+    } else {
+      // Restore: identify on if not in place mode
+      if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
+      map.getContainer().style.cursor = placeMode ? 'crosshair' : 'default';
+    }
   }
 
-  function isPlaceMode() { return !drawToolActive && !svMode; }
+  function isPlaceMode() { return placeMode; }
+
+  function togglePlaceMode() {
+    placeMode = !placeMode;
+    const btn = document.getElementById('place-btn');
+    if (btn) {
+      btn.classList.toggle('active', placeMode);
+      btn.querySelector('span').textContent = `Place Point: ${placeMode ? 'ON' : 'OFF'}`;
+    }
+    document.getElementById('map').classList.toggle('place-mode', placeMode);
+    // Parcel identify is the inverse of place mode
+    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
+    map.getContainer().style.cursor = placeMode ? 'crosshair' : 'default';
+  }
+
+  function setPlaceMode(val) {
+    placeMode = val;
+    document.getElementById('map').classList.toggle('place-mode', val);
+    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!val);
+    map.getContainer().style.cursor = val ? 'crosshair' : 'default';
+  }
 
   // ── SELECTION ────────────────────────────────────────────────────────────────
   function select(layerId, ptId) {
@@ -250,7 +280,7 @@ const Points = (() => {
   function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   return {
-    init, setDrawToolActive, isDrawToolActive, isPlaceMode, setSVMode,
+    init, setDrawToolActive, isDrawToolActive, togglePlaceMode, setPlaceMode, isPlaceMode, setSVMode,
     select, deselect, getSelected, getCopied,
     openEditPopup, openNewPopup, streetViewAt,
     deletePoint, copySelected, pasteAt, pasteAtCenter,

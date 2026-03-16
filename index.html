@@ -363,7 +363,15 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 <!-- TOOLBAR -->
 <div id="draw-toolbar">
   <div style="display:flex;align-items:center;gap:6px;padding-right:10px;border-right:1px solid var(--border2);">
-    <span style="font-size:10px;color:var(--muted2);">Placing on:</span>
+    <button class="toolbar-btn" id="place-btn" onclick="Points.togglePlaceMode()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+      <span>Place Point: OFF</span>
+      <div class="tt">Toggle to place points on map · default is parcel identify</div>
+    </button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:6px;padding-right:10px;border-right:1px solid var(--border2);">
+    <span style="font-size:10px;color:var(--muted2);">Active:</span>
     <div id="toolbar-active-layer" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mint);font-weight:500;">—</div>
   </div>
 
