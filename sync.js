@@ -21,16 +21,23 @@ const Sync = (() => {
   async function savePoints(allPoints) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
     try {
-      const payload = JSON.stringify({ action:'save', points:allPoints });
-      await fetch(`${CONFIG.APPS_SCRIPT_URL}?payload=${encodeURIComponent(payload)}`);
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save', points: allPoints }),
+      });
     } catch(e) { console.warn('Sync save failed:', e); }
   }
+
   async function saveAnnotations(annotations) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
     try {
-      const payload = JSON.stringify({ action:'saveAnnotations', annotations });
-      await fetch(`${CONFIG.APPS_SCRIPT_URL}?payload=${encodeURIComponent(payload)}`);
-    } catch(e) {}
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'saveAnnotations', annotations }),
+      });
+    } catch(e) { console.warn('Annotation save failed:', e); }
   }
   async function sendHeartbeat(sessionId, name) {
     if (!CONFIG.APPS_SCRIPT_URL || !name) return;

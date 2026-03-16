@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0d1117">
 <title>Chaka Signs Map</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
 
@@ -351,7 +353,37 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 #rotate-overlay .rotate-icon{font-size:48px;animation:rotateHint 2s ease-in-out infinite;}
 @keyframes rotateHint{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
 #rotate-overlay p{font-size:13px;color:var(--muted);}
-@media(max-width:768px) and (orientation:landscape){:root{--panel-w:220px;--toolbar-h:44px;}.toolbar-btn>span{display:none;}.toolbar-btn{padding:5px 8px;}.leaflet-popup-content-wrapper{max-width:85vw!important;}}
+@media(max-width:768px) and (orientation:landscape){
+  :root{--panel-w:200px;--toolbar-h:40px;}
+  /* Compact sidebar on mobile landscape */
+  #sidebar-header{padding:6px 10px;}
+  #sidebar-header h1{font-size:13px;}
+  #sidebar-header p{display:none;}
+  #search-wrap{padding:4px 8px;}
+  #search-input{font-size:10px;padding:4px 22px 4px 6px;}
+  #presence-bar{min-height:18px;padding:2px 8px;}
+  .presence-pill{font-size:8px;padding:1px 5px;}
+  #user-bar{padding:2px 8px;}
+  #user-bar-name{font-size:8px;}
+  #logout-btn{font-size:8px;}
+  #active-layer-bar{padding:4px 8px;}
+  #active-layer-bar > label{display:none;}
+  #basemap-row{padding:3px 8px;gap:6px;font-size:9px;}
+  .layer-row{padding:3px 8px;}
+  .layer-name{font-size:9px;}
+  .section-label{padding:3px 8px 2px;font-size:8px;}
+  #total-summary{padding:3px 8px;font-size:8px;}
+  #credit-footer{display:none;}
+  #bottom-panel{padding:5px;gap:4px;}
+  .tool-btn{padding:4px 7px;font-size:9px;}
+  /* Toolbar - icons only */
+  .toolbar-btn>span{display:none;}
+  .toolbar-btn{padding:5px 8px;}
+  .leaflet-popup-content-wrapper{max-width:85vw!important;}
+  #draw-options-bar{flex-wrap:wrap;max-width:90vw;}
+  /* Brightness slider repositioned on mobile */
+  #brightness-wrap{bottom:22px;font-size:9px;}
+}
 /* ── REMOVE COLLAPSE BTN ── */
 #collapse-btn{display:none!important;}
 #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:20px;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:9999;white-space:nowrap;}
@@ -625,19 +657,17 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   // Imperial-only scale
   L.control.scale({ imperial:true, metric:false, position:'bottomright' }).addTo(map);
 
-  // Aerial basemap
+  // Aerial basemap - use a dedicated pane so brightness filter doesn't affect UI
+  const aerialPane = map.createPane('aerialPane');
+  aerialPane.style.zIndex = 200;
   const aerialLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { attribution:'Imagery © Esri', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:19 }
+    { attribution:'Imagery © Esri', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:19, pane:'aerialPane' }
   ).addTo(map);
 
-  // Brightness control
+  // Brightness control - only affects the aerial pane, not the UI
   window.setBrightness = function(val) {
-    const pane = aerialLayer.getContainer ? aerialLayer.getContainer() : null;
-    // Apply to all aerial tiles via CSS filter on the tile pane
-    const tilePanes = map.getPanes();
-    if (tilePanes.tilePane) tilePanes.tilePane.style.filter = `brightness(${val}%)`;
-    document.getElementById('brightness-slider').title = `Brightness: ${val}%`;
+    aerialPane.style.filter = `brightness(${val}%)`;
   };
 
   const streetLabels = L.tileLayer(

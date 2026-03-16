@@ -31,7 +31,22 @@ function doGet(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── LOAD ALL (points + annotations in one call) ───────────────────────────────
+function doPost(e) {
+  let result;
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    if      (payload.action === 'save')           result = savePoints(payload.points);
+    else if (payload.action === 'saveAnnotations') result = saveAnnotations(payload.annotations);
+    else result = { error: 'Unknown POST action' };
+  } catch(err) {
+    result = { error: err.toString() };
+  }
+  return ContentService
+    .createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+
 function loadAll() {
   return {
     points:      loadPoints().points,
