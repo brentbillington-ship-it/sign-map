@@ -18,19 +18,22 @@ const Points = (() => {
     map.on('click', e => {
       UI.hideCtxMenu();
       if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
-      if (!placeMode) return;  // parcel identify handles clicks when place mode off
+      if (!placeMode) return;
       if (drawToolActive) return;
       const layerId = UI.getActiveLayerId();
       openNewPopup(e.latlng, layerId);
+      // Stay active — user clicks again to place another, right-click or Esc to cancel
     });
 
     map.on('contextmenu', e => {
+      // Right-click deactivates point tool
+      if (placeMode) { deactivateTool(); return; }
       const layerId = UI.getActiveLayerId();
       const def = Layers.getDef(layerId);
       UI.showCtxMenu(e.originalEvent, {
         placeLabel: def ? `Place "${def.name}" here` : 'Place point here',
         hasCopy: !!copiedPoint,
-        onPlace: () => openNewPopup(e.latlng, layerId),
+        onPlace: () => { activateTool(); openNewPopup(e.latlng, layerId); },
         onPaste: () => pasteAt(e.latlng),
         onStreetView: () => _openStreetView(e.latlng.lat, e.latlng.lng),
       });
@@ -73,27 +76,38 @@ const Points = (() => {
     }
   }
 
-  function isPlaceMode() { return placeMode; }
-
-  function togglePlaceMode() {
-    placeMode = !placeMode;
-    const btn = document.getElementById('place-btn');
-    if (btn) {
-      btn.classList.toggle('active', placeMode);
-      btn.querySelector('span').textContent = `Place Point: ${placeMode ? 'ON' : 'OFF'}`;
-    }
-    document.getElementById('map').classList.toggle('place-mode', placeMode);
-    // Parcel identify is the inverse of place mode
-    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
-    map.getContainer().style.cursor = placeMode ? 'crosshair' : 'default';
+  // ── POINT TOOL (Nearmap-style — just another tool) ───────────────────────────
+  function activateTool() {
+    // If already active, deactivate (toggle off)
+    if (placeMode) { deactivateTool(); return; }
+    // Deactivate any active draw tool first
+    if (typeof Annotations !== 'undefined') Annotations.clearTool();
+    placeMode = true;
+    const btn = document.getElementById('tool-point');
+    if (btn) btn.classList.add('active');
+    document.getElementById('map').classList.add('place-mode');
+    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(false);
+    map.getContainer().style.cursor = 'crosshair';
+    // Show mobile cancel bar
+    const bar = document.getElementById('mobile-cancel-bar');
+    if (bar) bar.classList.add('show');
   }
 
-  function setPlaceMode(val) {
-    placeMode = val;
-    document.getElementById('map').classList.toggle('place-mode', val);
-    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!val);
-    map.getContainer().style.cursor = val ? 'crosshair' : 'default';
+  function deactivateTool() {
+    placeMode = false;
+    const btn = document.getElementById('tool-point');
+    if (btn) btn.classList.remove('active');
+    document.getElementById('map').classList.remove('place-mode');
+    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(true);
+    map.getContainer().style.cursor = 'default';
+    // Hide mobile cancel bar
+    const bar = document.getElementById('mobile-cancel-bar');
+    if (bar) bar.classList.remove('show');
   }
+
+  // Keep these for backward compat with other modules
+  function togglePlaceMode() { placeMode ? deactivateTool() : activateTool(); }
+  function setPlaceMode(val) { val ? activateTool() : deactivateTool(); }
 
   // ── SELECTION ────────────────────────────────────────────────────────────────
   function select(layerId, ptId) {
@@ -267,7 +281,11 @@ const Points = (() => {
     if ((e.ctrlKey||e.metaKey) && e.key==='z') { e.preventDefault(); Layers.undo(); return; }
     if ((e.ctrlKey||e.metaKey) && e.key==='c') { copySelected(); return; }
     if ((e.ctrlKey||e.metaKey) && e.key==='v') { pasteAtCenter(); return; }
-    if (e.key==='Escape') { setSVMode(false); if(typeof Annotations!=='undefined') Annotations.clearTool(); }
+    if (e.key==='Escape') {
+      if (placeMode) { deactivateTool(); return; }
+      setSVMode(false);
+      if(typeof Annotations!=='undefined') Annotations.clearTool();
+    }
     if (e.key==='Delete' && selectedPoint) {
       if (confirm('Delete selected point?')) deletePoint(selectedPoint.layerId, selectedPoint.ptId);
     }
@@ -283,7 +301,8 @@ const Points = (() => {
   function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   return {
-    init, setDrawToolActive, isDrawToolActive, togglePlaceMode, setPlaceMode, isPlaceMode, setSVMode,
+    init, setDrawToolActive, isDrawToolActive,
+    activateTool, deactivateTool, togglePlaceMode, setPlaceMode, isPlaceMode, setSVMode,
     select, deselect, getSelected, getCopied,
     openEditPopup, openNewPopup, streetViewAt,
     deletePoint, copySelected, pasteAt, pasteAtCenter,

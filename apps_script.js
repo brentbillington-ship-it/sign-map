@@ -22,9 +22,11 @@ function doGet(e) {
     } else if (params.payload) {
       const payload = JSON.parse(decodeURIComponent(params.payload));
       const a = payload.action;
-      if      (a === 'addPoint')    result = addPoint(payload.layerId, payload.point);
-      else if (a === 'updatePoint') result = updatePoint(payload.layerId, payload.point);
+      if      (a === 'addPoint')    result = savePoint(payload.layerId, payload.point);
+      else if (a === 'updatePoint') result = savePoint(payload.layerId, payload.point);
+      else if (a === 'savePoint')   result = savePoint(payload.layerId, payload.point);
       else if (a === 'deletePoint') result = deletePoint(payload.layerId, payload.ptId);
+      else if (a === 'saveLayer')   result = saveLayer(payload.layerId, payload.points, payload.append);
       else if (a === 'heartbeat')   result = saveHeartbeat(payload.sessionId, payload.name, payload.ts);
       else if (a === 'saveAnnotations') result = saveAnnotations(payload.annotations);
       // Legacy full-save fallback (small datasets only)
@@ -129,7 +131,37 @@ function deletePoint(layerId, ptId) {
 }
 
 // ── LEGACY FULL SAVE (fallback for small datasets) ────────────────────────────
-function saveAllPoints(points) {
+function savePoint(layerId, pt) {
+  const sheet = _getSheet();
+  const data  = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(pt.id)) {
+      const row = _pointToRow({...pt, layerId});
+      sheet.getRange(i+1, 1, 1, COLS.length).setValues([row]);
+      return { ok:true, action:'updated' };
+    }
+  }
+  sheet.appendRow(_pointToRow({...pt, layerId}));
+  return { ok:true, action:'added' };
+}
+
+function saveLayer(layerId, pts, append) {
+  const sheet = _getSheet();
+  if (!append) {
+    const data = sheet.getDataRange().getValues();
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][1]) === String(layerId)) sheet.deleteRow(i+1);
+    }
+  }
+  if (pts && pts.length) {
+    const rows = pts.map(pt => _pointToRow({...pt, layerId}));
+    const lastRow = sheet.getLastRow() || 1;
+    sheet.getRange(lastRow+1, 1, rows.length, COLS.length).setValues(rows);
+  }
+  return { ok:true, count: pts ? pts.length : 0 };
+}
+
+
   const ss    = SpreadsheetApp.openById(SHEET_ID);
   let sheet   = ss.getSheetByName(POINTS_SHEET) || ss.insertSheet(POINTS_SHEET);
   sheet.clearContents();
@@ -143,6 +175,15 @@ function saveAllPoints(points) {
 }
 
 // ── ANNOTATIONS ───────────────────────────────────────────────────────────────
+function saveAllPoints(points) {
+  let total = 0;
+  Object.entries(points||{}).forEach(([layerId, pts]) => {
+    saveLayer(layerId, pts, false);
+    total += (pts||[]).length;
+  });
+  return { success:true, count:total };
+}
+
 function loadAnnotations() {
   const ss    = SpreadsheetApp.openById(SHEET_ID);
   const sheet = ss.getSheetByName(ANNOTATIONS_SHEET);

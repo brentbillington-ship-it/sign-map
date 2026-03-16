@@ -1,21 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sync.js — v3.1f — Delta saves (one point at a time), no payload size issues
+// sync.js — v3.1e — Delta saves to stay under Apps Script URL limit
 // ─────────────────────────────────────────────────────────────────────────────
-
 const Sync = (() => {
   let lastHash = '';
 
-  // ── GET helper (all reads + small writes) ────────────────────────────────────
-  async function _get(payload) {
-    if (!CONFIG.APPS_SCRIPT_URL) return null;
-    const encoded = encodeURIComponent(JSON.stringify(payload));
-    try {
-      const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?payload=${encoded}`, { redirect:'follow' });
-      return await res.json();
-    } catch(e) { console.warn('Sync GET failed:', payload.action, e); return null; }
+  async function _get(params) {
+    if (!CONFIG.APPS_SCRIPT_URL) return;
+    await fetch(`${CONFIG.APPS_SCRIPT_URL}?${params}`, { redirect:'follow' });
   }
 
-  // ── LOAD ─────────────────────────────────────────────────────────────────────
+  // ── LOAD ──────────────────────────────────────────────────────────────────
   async function loadAll(onUpdate) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
     try {
@@ -33,36 +27,58 @@ const Sync = (() => {
     setInterval(() => loadAll(onUpdate), CONFIG.REFRESH_INTERVAL);
   }
 
-  // ── DELTA POINT SAVES (tiny payloads, always within GAS URL limit) ───────────
-  async function addPoint(layerId, point) {
-    return _get({ action:'addPoint', layerId, point });
+  // ── DELTA: save one point (add or update) ─────────────────────────────────
+  async function savePoint(layerId, pt) {
+    if (!CONFIG.APPS_SCRIPT_URL) return;
+    try {
+      const payload = JSON.stringify({ action:'savePoint', layerId, point:pt });
+      await _get(`payload=${encodeURIComponent(payload)}`);
+    } catch(e) { console.warn('savePoint failed:', e); }
   }
 
-  async function updatePoint(layerId, point) {
-    return _get({ action:'updatePoint', layerId, point });
-  }
-
+  // ── DELTA: delete one point ───────────────────────────────────────────────
   async function deletePoint(layerId, ptId) {
-    return _get({ action:'deletePoint', layerId, ptId });
+    if (!CONFIG.APPS_SCRIPT_URL) return;
+    try {
+      const payload = JSON.stringify({ action:'deletePoint', layerId, ptId });
+      await _get(`payload=${encodeURIComponent(payload)}`);
+    } catch(e) { console.warn('deletePoint failed:', e); }
   }
 
-  // ── ANNOTATIONS (saved as full replace — usually small) ──────────────────────
+  // ── BULK: save all points (chunked per layer to stay under URL limit) ──────
+  async function savePoints(allPoints) {
+    if (!CONFIG.APPS_SCRIPT_URL) return;
+    for (const [layerId, pts] of Object.entries(allPoints)) {
+      if (!pts || !pts.length) continue;
+      // Split into chunks of 15 to stay safely under 8KB URL limit
+      const CHUNK = 15;
+      for (let i = 0; i < pts.length; i += CHUNK) {
+        const chunk   = pts.slice(i, i + CHUNK);
+        const append  = i > 0;
+        const payload = JSON.stringify({ action:'saveLayer', layerId, points:chunk, append });
+        try {
+          await _get(`payload=${encodeURIComponent(payload)}`);
+        } catch(e) { console.warn(`saveLayer chunk ${layerId}[${i}] failed:`, e); }
+      }
+    }
+  }
+
+  // ── ANNOTATIONS ───────────────────────────────────────────────────────────
   async function saveAnnotations(annotations) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
-    // Annotations are usually few — chunk if needed
-    const payload = JSON.stringify({ action:'saveAnnotations', annotations });
-    const encoded = encodeURIComponent(payload);
-    if (encoded.length < 7000) {
-      return _get({ action:'saveAnnotations', annotations });
-    }
-    // Too large — save empty and warn
-    console.warn('Annotations payload too large, skipping save');
+    try {
+      const payload = JSON.stringify({ action:'saveAnnotations', annotations });
+      await _get(`payload=${encodeURIComponent(payload)}`);
+    } catch(e) { console.warn('Annotation save failed:', e); }
   }
 
-  // ── PRESENCE ─────────────────────────────────────────────────────────────────
+  // ── PRESENCE ──────────────────────────────────────────────────────────────
   async function sendHeartbeat(sessionId, name) {
     if (!CONFIG.APPS_SCRIPT_URL || !name) return;
-    return _get({ action:'heartbeat', sessionId, name, ts:Date.now() });
+    try {
+      const payload = JSON.stringify({ action:'heartbeat', sessionId, name, ts:Date.now() });
+      await _get(`payload=${encodeURIComponent(payload)}`);
+    } catch(e) {}
   }
 
   async function loadPresence(onUpdate) {
@@ -70,7 +86,7 @@ const Sync = (() => {
     try {
       const res  = await fetch(`${CONFIG.APPS_SCRIPT_URL}?action=presence`, { redirect:'follow' });
       const data = await res.json();
-      onUpdate(data.presence || data || {});
+      onUpdate(data.presence || {});
     } catch(e) {}
   }
 
@@ -81,9 +97,9 @@ const Sync = (() => {
     setInterval(() => loadPresence(onPresenceUpdate), CONFIG.PRESENCE_INTERVAL);
   }
 
-  return {
-    loadAll, startRefresh,
-    addPoint, updatePoint, deletePoint,
-    saveAnnotations, sendHeartbeat, startPresence,
-  };
+  // Aliases used by points.js
+  const addPoint    = savePoint;
+  const updatePoint = savePoint;
+
+  return { loadAll, startRefresh, addPoint, updatePoint, savePoint, deletePoint, savePoints, saveAnnotations, sendHeartbeat, startPresence };
 })();
