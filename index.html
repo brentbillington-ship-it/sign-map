@@ -331,6 +331,29 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .sp-btns{display:flex;gap:5px;margin-top:2px;}
 .sp-save{flex:1;padding:4px;background:var(--teal);color:#fff;border:none;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
 .sp-cancel{padding:4px 8px;background:transparent;color:var(--muted2);border:1px solid var(--border2);border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
+/* ── BRIGHTNESS SLIDER ── */
+#brightness-wrap{position:absolute;bottom:28px;left:10px;z-index:999;background:rgba(22,27,34,0.88);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted2);box-shadow:0 2px 8px rgba(0,0,0,0.4);}
+#brightness-slider{width:80px;accent-color:var(--accent);}
+/* ── SYNC STATUS ── */
+#sync-dot{width:7px;height:7px;border-radius:50%;background:#5cb85c;flex-shrink:0;transition:background 0.3s;}
+#sync-dot.saving{background:#f5d76e;animation:pulse 0.8s infinite;}
+#sync-dot.error{background:#e05252;}
+#sync-status-wrap{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted2);}
+/* ── GHOST CURSOR ── */
+.ghost-dot{width:10px;height:10px;border-radius:50%;opacity:0.55;border:2px solid rgba(255,255,255,0.4);}
+.ghost-cross{width:18px;height:18px;position:relative;opacity:0.6;}
+.gc-h{position:absolute;top:50%;left:0;right:0;height:1.5px;background:#fff;transform:translateY(-50%);}
+.gc-v{position:absolute;left:50%;top:0;bottom:0;width:1.5px;background:#fff;transform:translateX(-50%);}
+.ghost-text{font-family:'DM Mono',monospace;font-size:14px;color:rgba(255,255,255,0.6);font-weight:700;}
+/* ── MOBILE ── */
+@media(orientation:portrait){#rotate-overlay{display:flex;}}
+#rotate-overlay{display:none;position:fixed;inset:0;z-index:99999;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:'DM Mono',monospace;color:var(--text);}
+#rotate-overlay .rotate-icon{font-size:48px;animation:rotateHint 2s ease-in-out infinite;}
+@keyframes rotateHint{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
+#rotate-overlay p{font-size:13px;color:var(--muted);}
+@media(max-width:768px) and (orientation:landscape){:root{--panel-w:220px;--toolbar-h:44px;}.toolbar-btn>span{display:none;}.toolbar-btn{padding:5px 8px;}.leaflet-popup-content-wrapper{max-width:85vw!important;}}
+/* ── REMOVE COLLAPSE BTN ── */
+#collapse-btn{display:none!important;}
 #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:20px;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:9999;white-space:nowrap;}
 #toast.show{opacity:1;}
 </style>
@@ -393,6 +416,13 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     <div class="tt">Download GeoJSON</div>
   </button>
 
+  <div class="toolbar-sep"></div>
+
+  <div id="sync-status-wrap">
+    <div id="sync-dot"></div>
+    <span id="sync-label">Saved</span>
+  </div>
+
   <div id="toolbar-version"></div>
   <div id="toolbar-hint"></div>
 </div>
@@ -407,6 +437,12 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   <div class="opt-sep"></div>
   <label>Label</label>
   <input type="text" id="draw-label-input" placeholder="Optional label…" oninput="Annotations.setDrawLabel(this.value)"/>
+</div>
+
+<!-- ROTATE OVERLAY -->
+<div id="rotate-overlay">
+  <div class="rotate-icon">📱</div>
+  <p>Please rotate your device to landscape mode</p>
 </div>
 
 <!-- MAIN -->
@@ -478,10 +514,12 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 <div id="map-wrap">
   <div id="map"></div>
   <div id="coords-bar"><span id="coords-display">—</span></div>
+  <div id="brightness-wrap">
+    ☀️ <input type="range" id="brightness-slider" min="30" max="150" value="100" oninput="setBrightness(this.value)"/>
+  </div>
   <button id="location-btn" onclick="UI.toggleMyLocation()" title="My location">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2" opacity="0.4"/></svg>
   </button>
-  <button id="collapse-btn" onclick="UI.toggleSidebar()" title="Toggle sidebar">‹</button>
 </div>
 
 </div><!-- #main -->
@@ -574,41 +612,93 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     minZoom: CONFIG.MIN_ZOOM, maxZoom: CONFIG.MAX_ZOOM,
     zoomControl: true,
   });
-
-  // Force crosshair cursor on map container
   map.getContainer().style.cursor = 'crosshair';
 
-  L.control.scale({ imperial:true, metric:true, position:'bottomright' }).addTo(map);
+  // Imperial-only scale
+  L.control.scale({ imperial:true, metric:false, position:'bottomright' }).addTo(map);
 
-  L.tileLayer(
+  // Aerial basemap
+  const aerialLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     { attribution:'Imagery © Esri', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:19 }
   ).addTo(map);
+
+  // Brightness control
+  window.setBrightness = function(val) {
+    const pane = aerialLayer.getContainer ? aerialLayer.getContainer() : null;
+    // Apply to all aerial tiles via CSS filter on the tile pane
+    const tilePanes = map.getPanes();
+    if (tilePanes.tilePane) tilePanes.tilePane.style.filter = `brightness(${val}%)`;
+    document.getElementById('brightness-slider').title = `Brightness: ${val}%`;
+  };
 
   const streetLabels = L.tileLayer(
     'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
     { subdomains:'abcd', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:19, opacity:0.9 }
   ).addTo(map);
 
-  // Init all modules
+  // ── SYNC STATUS INDICATOR ──
+  const syncDot   = document.getElementById('sync-dot');
+  const syncLabel = document.getElementById('sync-label');
+  function setSyncStatus(status) {
+    if (!syncDot) return;
+    syncDot.className = status === 'saving' ? 'saving' : status === 'error' ? 'error' : '';
+    if (syncLabel) syncLabel.textContent = status === 'saving' ? 'Saving…' : status === 'error' ? 'Error' : 'Saved';
+  }
+
+  // ── LAYER STYLE PERSISTENCE ──
+  function saveLayerStyles() {
+    const styles = {};
+    Object.values(Layers.getDefs()).forEach(def => {
+      if (def.group === 'custom' || true) { // save all
+        styles[def.id] = { name:def.name, color:def.color, shape:def.shape };
+      }
+    });
+    localStorage.setItem('chakaLayerStyles', JSON.stringify(styles));
+  }
+
+  function loadLayerStyles() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('chakaLayerStyles')||'{}');
+      Object.entries(saved).forEach(([id, style]) => {
+        if (Layers.getDef(id)) Layers.updateLayerStyle(id, style);
+      });
+    } catch(e) {}
+  }
+
+  // Patch updateLayerStyle to also save
+  const origUpdate = Layers.updateLayerStyle;
+  Layers.updateLayerStyle = function(id, changes) {
+    origUpdate(id, changes);
+    saveLayerStyles();
+  };
+
+  // ── INIT MODULES ──
   Layers.init(map);
+  loadLayerStyles();
   ParcelsLayer.init(map);
-  Points.init(map, allPoints => Sync.savePoints(allPoints));
-  Annotations.init(map, anns => Sync.saveAnnotations(anns));
+  Points.init(map, allPoints => {
+    setSyncStatus('saving');
+    Sync.savePoints(allPoints).then ? Sync.savePoints(allPoints).then(()=>setSyncStatus('saved')).catch(()=>setSyncStatus('error')) : (Sync.savePoints(allPoints), setTimeout(()=>setSyncStatus('saved'),1000));
+  });
+  Annotations.init(map, anns => {
+    setSyncStatus('saving');
+    Sync.saveAnnotations(anns);
+    setTimeout(()=>setSyncStatus('saved'), 1000);
+  });
+
   UI.init(map, streetLabels, username => {
-    // Update toolbar active layer indicator whenever layer changes
     function updateToolbarLayer() {
       const id  = UI.getActiveLayerId();
       const def = Layers.getDef(id);
       const el  = document.getElementById('toolbar-active-layer');
       if (el && def) {
-        const br = def.shape==='circle'?'50%':'2px';
+        const br  = def.shape==='circle'?'50%':'2px';
         const cnt = (Layers.getPoints(id)||[]).length;
-        el.innerHTML = `<span style="display:inline-block;width:10px;height:10px;background:${def.color};border-radius:${br};border:1.5px solid rgba(255,255,255,0.3);flex-shrink:0;"></span> ${def.name} <span style="color:var(--muted2);font-size:10px">(${cnt})</span>`;
+        el.innerHTML = `<span style="display:inline-block;width:10px;height:10px;background:${def.color};border-radius:${br};border:1.5px solid rgba(255,255,255,0.3);flex-shrink:0;"></span>&nbsp;${def.name}&nbsp;<span style="color:var(--muted2);font-size:10px">(${cnt})</span>`;
       }
     }
 
-    // Patch _selectLayer to also update toolbar
     const origSelect = UI._selectLayer;
     UI._selectLayer = function(id) { origSelect(id); updateToolbarLayer(); };
 
@@ -617,6 +707,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
       Points.renderAll();
       if (data.annotations) Annotations.loadFromSheets(data.annotations);
       updateToolbarLayer();
+      setSyncStatus('saved');
     });
     Sync.startPresence(
       Presence.getSessionId(),

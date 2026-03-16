@@ -59,6 +59,8 @@ const Points = (() => {
     const btn = document.getElementById('sv-btn');
     if (btn) btn.classList.toggle('active', on);
     map.getContainer().style.cursor = on ? 'crosshair' : (drawToolActive ? '' : 'crosshair');
+    // Disable parcel identify while in SV mode, restore when done
+    if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!on);
   }
 
   function isPlaceMode() { return !drawToolActive && !svMode; }
