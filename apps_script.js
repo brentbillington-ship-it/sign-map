@@ -161,19 +161,6 @@ function saveLayer(layerId, pts, append) {
   return { ok:true, count: pts ? pts.length : 0 };
 }
 
-
-  const ss    = SpreadsheetApp.openById(SHEET_ID);
-  let sheet   = ss.getSheetByName(POINTS_SHEET) || ss.insertSheet(POINTS_SHEET);
-  sheet.clearContents();
-  sheet.appendRow(COLS);
-  const rows = [];
-  Object.entries(points||{}).forEach(([layerId, pts]) => {
-    (pts||[]).forEach(pt => rows.push(_pointToRow({...pt, layerId})));
-  });
-  if (rows.length) sheet.getRange(2, 1, rows.length, COLS.length).setValues(rows);
-  return { ok: true, count: rows.length };
-}
-
 // ── ANNOTATIONS ───────────────────────────────────────────────────────────────
 function saveAllPoints(points) {
   let total = 0;

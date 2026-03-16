@@ -1,124 +1,122 @@
-# Chaka Signs Map — Session Kickoff Doc
-*Give this file to a new Claude chat to resume development instantly*
+# Chaka Signs Map — Session Kickoff
+
+## Live URL
+https://brentbillington-ship-it.github.io/sign-map/
+
+## GitHub Repo
+https://github.com/brentbillington-ship-it/sign-map
 
 ---
 
-## What This Is
-A collaborative web map for the Coppell, TX Chaka sign campaign. Hosted on GitHub Pages. No server — uses Google Apps Script + Google Sheets as a backend.
-
-**Live URL:** `https://brentbillington-ship-it.github.io/Sign_Routing/` *(update if repo changes)*
-
----
-
-## File Structure
-```
-chaka-map/
-├── index.html        ← Shell only. Loads all modules. Boot logic at bottom.
-├── config.js         ← ALL config: password, Apps Script URL, map bounds, layer defs
-├── layers.js         ← Layer state, marker icons, render, visibility, CRUD
-├── points.js         ← Point placement, edit/delete/copy/paste popups, keyboard shortcuts
-├── parcels_layer.js  ← Read-only parcel overlay, click popup, highlight on select
-├── parcels.js        ← 6MB baked-in GeoJSON (16,986 Coppell parcels from PROPERTY_LINES.kmz)
-├── presence.js       ← Who's online sidebar pill rendering
-├── sync.js           ← Google Sheets load/save/refresh + presence heartbeat
-├── ui.js             ← Sidebar build, login, toast, context menu, KMZ upload, add layer modal, location btn
-└── apps_script.js    ← Paste into Google Apps Script (not served by GitHub Pages)
-```
-
-**Module load order** (enforced by index.html):
-`config.js` → `parcels.js` → `layers.js` → `presence.js` → `sync.js` → `parcels_layer.js` → `points.js` → `ui.js`
-
----
-
-## Key Config (config.js)
-```js
-MAP_PASSWORD:    'choochoo'
-APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx5MkAyVLaFS4p5G6JM6UfSCBQEeFGpMK88zqMwDlXT51TvVFhEE4BFYUxID0i6G9wU/exec'
-MAP_CENTER:      [32.9546, -97.0075]   // Coppell, TX
-MIN_ZOOM:        10                     // ~DFW metro
-MAX_ZOOM:        19                     // last good Esri aerial
-```
-
----
-
-## Layers
-| ID | Name | Shape | Color |
-|---|---|---|---|
-| large-repair | Large Sign (Repair) | square | #e05252 |
-| large-risky | Large Signs (Risky) | square | #e07c3a |
-| large-pending | Large Signs (Pending) | square | #4d94d4 |
-| large-ready | Large Signs (Ready) | square | #5cb85c |
-| large-installed | Large Signs (Installed) | square | #9b6dd4 |
-| small-risky | Small Signs (Risky) | circle | #e07c3a |
-| small-pending | Small Signs (Pending) | circle | #4d94d4 |
-| small-ready | Small Signs (Ready) | circle | #5cb85c |
-| small-installed | Small Signs (Installed) | circle | #9b6dd4 |
-| residential | Residential Signs | circle | #e06fa0 |
-
-Custom layers can be added at runtime via the UI — they get `group:'custom'` and a generated ID.
-
----
-
-## Backend (Google Apps Script)
+## Credentials
+- **Map password:** `choochoo`
 - **Apps Script URL:** `https://script.google.com/macros/s/AKfycbx5MkAyVLaFS4p5G6JM6UfSCBQEeFGpMK88zqMwDlXT51TvVFhEE4BFYUxID0i6G9wU/exec`
-- **Deployment ID:** `AKfycbx5MkAyVLaFS4p5G6JM6UfSCBQEeFGpMK88zqMwDlXT51TvVFhEE4BFYUxID0i6G9wU`
-- **Sheet name:** `Chaka Signs Data`
-- **Tabs auto-created:** `Points`, `Presence`
-
-**After every apps_script.js change:**
-Deploy → Manage deployments → pencil → New version → Deploy (URL stays the same)
+- **Google Sheet ID:** `1aBfll1stuWNXGD9Ez9vQnJ_uiJOt6zoVc-iNOjnE2nw`
+- **Sheet URL:** https://docs.google.com/spreadsheets/d/1aBfll1stuWNXGD9Ez9vQnJ_uiJOt6zoVc-iNOjnE2nw/edit
 
 ---
 
-## Features Built
-- [x] Esri World Imagery aerial basemap
-- [x] CartoDB street label overlay (toggle)
-- [x] 10 sign layers: 5 large square + 5 small circle
-- [x] Click map to place point on active layer
-- [x] Right-click context menu: Place here / Paste
-- [x] Edit popup: change layer, name, notes
-- [x] Delete button + Delete key shortcut
-- [x] Ctrl+C / Ctrl+V copy-paste
-- [x] Last layer remembered in localStorage
-- [x] Add custom layer (name, color, shape picker)
-- [x] KMZ drag-and-drop upload (renders as yellow overlay)
-- [x] Property Lines layer (16,986 parcels baked in, read-only, click for owner popup, highlight on select)
-- [x] My Location button (floating, GPS pulse dot, Felt-style)
-- [x] Who's online (presence bar with animated dots)
-- [x] Login gate with name prompt (localStorage remembers auth)
-- [x] Google Sheets backend: 15s silent refresh, presence heartbeat every 25s
-- [x] Export to GeoJSON button
-- [x] Scale bar (imperial + metric)
-- [x] Min zoom: 10 (DFW metro), Max zoom: 19 (no bad tiles)
+## Current Version: v3.1f (in progress — not yet pushed)
+
+### File Structure
+```
+index.html          — Shell, CSS, toolbar HTML, boot script
+config.js           — Version, password, Apps Script URL, layer defs, seed data
+layers.js           — Layer state, markers, drag reorder, undo, opacity
+points.js           — Point placement tool, popups, attribution, copy/paste
+parcels_layer.js    — 16,986 parcel polygons, identify mode
+parcels.js          — Baked-in parcel GeoJSON (6MB, never edit)
+annotations.js      — Draw tools: line, shape, text, measure, erase
+sync.js             — Google Sheets sync (delta saves)
+ui.js               — Sidebar, layer dropdown, search, modals, style editor
+presence.js         — Who's online
+apps_script.js      — Google Apps Script backend (requires redeploy after changes)
+```
+
+### Module Load Order (index.html)
+`config.js → parcels.js → layers.js → presence.js → sync.js → parcels_layer.js → points.js → annotations.js → ui.js`
 
 ---
 
-## Parcel Data
-- Source: `PROPERTY_LINES.kmz` (Coppell ISD parcel KMZ, DCAD data)
-- Parsed to GeoJSON: 16,986 features, ~6MB raw / ~1MB gzipped
-- Fields: `name` (land use), `owner` (OWNER_NAME1), `addr1`, `addr2`
-- Stored in: `parcels.js` as `const PARCELS_GEOJSON = {...}`
-- Layer logic: `parcels_layer.js` — yellow outlines, hover highlight, click = white highlight + popup
+## Architecture: How It Works
+
+### Saves (IMPORTANT — previous sessions had bugs here)
+Saves use **delta GET requests** — only the changed point is sent, not the whole dataset.
+- New point → `Sync.addPoint(layerId, pt)` → `?payload={"action":"addPoint",...}`
+- Edit/drag → `Sync.updatePoint(layerId, pt)` → `?payload={"action":"updatePoint",...}`
+- Delete → `Sync.deletePoint(layerId, ptId)` → `?payload={"action":"deletePoint",...}`
+- Bulk (seed/undo/import) → `Sync.savePoints(allPoints)` → chunked per layer, 15 pts at a time
+- Reason: full save payload (56 seeds = 18KB URL-encoded) exceeds GAS 8KB GET limit
+- POST was tried but fails due to CORS preflight — `Content-Type: application/json` triggers OPTIONS which GAS doesn't handle
+
+### Apps Script (REQUIRES REDEPLOY after any apps_script.js change)
+Deploy → Manage deployments → pencil ✏ → New version → Deploy (same URL preserved)
+Actions handled in `doGet`: `load`, `presence`, `addPoint`, `updatePoint`, `savePoint`, `deletePoint`, `saveLayer`, `saveAnnotations`, `heartbeat`, `save` (legacy fallback)
+
+### Parcel Identify
+- Default state: parcels interactive (clicking shows owner/address popup)
+- When Point tool active: parcels non-interactive
+- When draw tool active: parcels non-interactive
+- When SV mode: parcels non-interactive
+- All managed via `ParcelsLayer.setIdentifyMode(bool)`
+
+### Point Tool (Nearmap-style)
+- Click "Point" in toolbar → activates (highlights like other tools)
+- Click map → shows new point form popup → save keeps tool active for next placement
+- Right-click OR Esc → deactivates, returns to parcel identify
+- Mobile: floating "✕ Cancel" bar appears at bottom when active
 
 ---
 
-## Pending / Not Built Yet
-- [ ] Residential Signs data upload (spreadsheet import)
-- [ ] Sign status workflow (e.g. move Pending → Installed in bulk)
-- [ ] Mobile optimizations
-- [ ] Print/PDF export
+## Layer Definitions
+| ID | Name | Color | Shape |
+|---|---|---|---|
+| large-repair | Large Sign (Repair) | #e05252 | square |
+| large-risky | Large Signs (Risky) | #e07c3a | square |
+| large-pending | Large Signs (Pending) | #4d94d4 | square |
+| large-ready | Large Signs (Ready) | #5cb85c | square |
+| large-installed | Large Signs (Installed) | #9b6dd4 | square |
+| small-risky | Small Signs (Risky) | #e07c3a | circle |
+| small-pending | Small Signs (Pending) | #4d94d4 | circle |
+| small-ready | Small Signs (Ready) | #5cb85c | circle |
+| small-installed | Small Signs (Installed) | #9b6dd4 | circle |
+| residential | Residential Signs | #e06fa0 | circle |
 
 ---
 
-## Deploy Checklist (GitHub Pages)
-1. Push all files to repo root (or subfolder with Pages configured)
-2. Settings → Pages → Deploy from branch → main / root
-3. `parcels.js` is large (6MB) — GitHub Pages serves it gzip-compressed, loads fine
+## Brand Colors
+- Navy `#1C355E`, Seafoam/Accent `#68949E`, Teal `#115E6B`
+- Mint `#B7CECD`, Cool Gray `#D9DAE4`, Salmon `#FC6758`
+- BG `#0d1117`, Panel `#161b22`, Border `#21262d`
+- Fonts: DM Mono (monospace), Syne (headers)
 
-## Rules Claude Should Follow For This Project
-- Never write or modify code without an explicit "go" signal from Brent
-- Always present changes as a numbered list first, wait for go
-- Use `py` not `python` in terminal commands (Windows)
-- Deliver as zip bundles (Brent can't download .py or .js files directly)
-- Set file timestamps to Central Time before zipping
-- After apps_script.js changes, remind Brent to redeploy (new version, same URL)
+---
+
+## Known Issues / Pending Work (DO NOT START WITHOUT "go")
+
+### Bug Fixes Needed
+1. **apps_script.js has an orphaned code block** — already fixed in local v3.1f but not yet delivered. The block between `saveLayer` and `saveAllPoints` (lines 164–175) needs to be removed. Fixed in working copy.
+2. **Saves not confirmed working** — delta save architecture is implemented but not yet tested live. Apps Script needs redeploy. User needs to test after pushing v3.1f files.
+3. **Residential signs show as maroon on mobile** — `#e06fa0` renders differently. Add `color-scheme: dark` meta tag (already in index.html v3.1e) and confirm it's in the deployed file.
+4. **Point labels vertical on mobile** — fixed with `writing-mode: horizontal-tb !important` in `.map-label` CSS (already in index.html v3.1f). Confirm deployed.
+
+### Feature Requests (pending "go")
+5. **Line/Measure tools clunky** — double-click to finish works but feels unreliable. Need to ensure single-click adds point, double-click reliably finishes without adding an extra point. Currently `_onDblClick` pops last point then finishes — may need debounce.
+6. **Selecting annotations to delete is difficult** — lines and shapes have thin click targets. Need wider invisible hit area (e.g. 15px stroke-width transparent overlay on top of each annotation for click detection).
+7. **Undo should work for ALL features** — currently undo only covers point CRUD. Annotations (lines, shapes, text, measures) are not in the undo stack. Need to add annotation state to `undoStack` in `layers.js` or create a unified undo manager that covers both points and annotations.
+8. **Place Point tool UX** — already refactored to Nearmap-style (activates/deactivates like draw tools). Right-click or Esc to cancel. Mobile cancel bar. Confirm working after v3.1f push.
+
+### Nice-to-Have (lower priority)
+9. **Ghost cursor on point placement** — show semi-transparent point following cursor when Point tool is active
+10. **Layer style changes don't persist across hard refresh** — saved to localStorage but not Sheets; will reset if localStorage cleared
+
+---
+
+## Rules for This Project
+- **NEVER write code without an explicit "go" signal from Brent**
+- Present proposed changes as a numbered list first, confirm, then wait for "go"
+- **Only deliver files that changed** — not the full 11-file zip every time
+- Always use `parcels.js` from the repo — never regenerate it (it's 6MB of baked-in GeoJSON)
+- Apps Script changes always require a redeploy reminder
+- File timestamps: Central Time (`America/Chicago`)
+- Halff/Chaka brand colors as defined above
