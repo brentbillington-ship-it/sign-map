@@ -21,12 +21,14 @@ const ParcelsLayer = (() => {
   function _isAddress(s) { return s && (/^\d/.test(s.trim()) || STREET_SUFFIXES.test(s)); }
 
   function _scrub(raw) {
-    const name  = (raw.name  || '').trim();
+    const name  = (raw.name  || '').trim();   // land use type e.g. "VACANT LAND"
     const owner = (raw.owner || '').trim();
     let addr1   = (raw.addr1 || '').trim();
     let addr2   = (raw.addr2 || '').trim();
-    if (!_isAddress(addr1)) addr1 = '';
-    if (!_isAddress(addr2)) addr2 = '';
+    // Only strip addr fields that are clearly names (all letters, no numbers, no suffix)
+    // Be conservative — if uncertain, keep the field
+    if (addr1 && !_isAddress(addr1) && /^[A-Z\s&,\.]+$/.test(addr1) && addr1.length > 3) addr1 = '';
+    if (addr2 && !_isAddress(addr2) && /^[A-Z\s&,\.]+$/.test(addr2) && addr2.length > 3) addr2 = '';
     return { name, owner, addr1, addr2 };
   }
 
@@ -71,9 +73,9 @@ const ParcelsLayer = (() => {
     L.popup({ maxWidth:280 })
       .setLatLng(e.latlng)
       .setContent(`<div class="parcel-popup">
-        <div class="parcel-title">${_e(p.name||'Parcel')}</div>
+        <div class="parcel-title">${_e(p.owner||'Unknown Owner')}</div>
+        ${p.name ? `<div style="font-size:9px;color:#8b949e;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em">${_e(p.name)}</div>` : ''}
         <table class="parcel-table">
-          <tr><td>Owner</td><td>${_e(p.owner||'—')}</td></tr>
           <tr><td>Address</td><td>${_e(addr)}</td></tr>
         </table>
         <div class="parcel-actions" style="margin-top:7px">

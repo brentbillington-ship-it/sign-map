@@ -108,8 +108,9 @@ const Layers = (() => {
     if (hasAny || !CONFIG.SEED_POINTS) return false;
     Object.entries(CONFIG.SEED_POINTS).forEach(([layerId, pts]) => {
       allPoints[layerId] = pts.map(p => ({...p, addedBy:'Brent', editedBy:'', editedAt:''}));
+      // Save each seed point individually (delta saves — no URL limit issues)
+      allPoints[layerId].forEach(pt => Sync.addPoint(layerId, pt));
     });
-    Sync.savePoints(allPoints);
     return true;
   }
 
@@ -171,8 +172,9 @@ const Layers = (() => {
           allPoints[layerId][idx].lng = pos.lng;
           allPoints[layerId][idx].editedBy = typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '';
           allPoints[layerId][idx].editedAt = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
+          // Delta save — just the moved point
+          Sync.updatePoint(layerId, allPoints[layerId][idx]);
         }
-        Sync.savePoints(allPoints);
         if (typeof UI !== 'undefined') UI.toast('Position updated');
       });
 

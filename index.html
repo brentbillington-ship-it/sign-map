@@ -229,8 +229,13 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .leaflet-popup-close-button{color:var(--muted)!important;font-size:15px!important;top:7px!important;right:7px!important;}
 .leaflet-popup-content{margin:12px 14px!important;}
 
-/* ── MARKER ANIMATION ── */
-.chaka-marker{transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1);}
+/* ── MARKER COLOR FIX (mobile Safari/Android color accuracy) ── */
+.chaka-marker {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  color-adjust: exact;
+  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+}
 
 /* ── LOCATION DOT ── */
 .loc-dot{width:18px;height:18px;position:relative;display:flex;align-items:center;justify-content:center;}
@@ -715,9 +720,10 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   Layers.init(map);
   loadLayerStyles();
   ParcelsLayer.init(map);
-  Points.init(map, allPoints => {
+  Points.init(map, () => {
+    // Points now call Sync.addPoint/updatePoint/deletePoint directly
     setSyncStatus('saving');
-    Sync.savePoints(allPoints).then ? Sync.savePoints(allPoints).then(()=>setSyncStatus('saved')).catch(()=>setSyncStatus('error')) : (Sync.savePoints(allPoints), setTimeout(()=>setSyncStatus('saved'),1000));
+    setTimeout(() => setSyncStatus('saved'), 1500);
   });
   Annotations.init(map, anns => {
     setSyncStatus('saving');

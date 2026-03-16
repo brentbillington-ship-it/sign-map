@@ -205,12 +205,13 @@ const Points = (() => {
       if (!confirm('A point already exists within 10m on this layer. Add anyway?')) return;
     }
     Layers.pushUndo(Layers.getAllPoints());
-    Layers.addPoint(newLayerId, { id:ptId, lat, lng, name, notes, addedBy:user, addedAt:now, editedBy:'', editedAt:'' });
+    const pt = { id:ptId, lat, lng, name, notes, addedBy:user, addedAt:now, editedBy:'', editedAt:'' };
+    Layers.addPoint(newLayerId, pt);
     UI.setActiveLayer(newLayerId);
     Layers.renderLayer(newLayerId, selectedPoint, _onMarkerClick);
     mapRef.closePopup();
     UI.toast('Point added');
-    onSave(Layers.getAllPoints());
+    Sync.addPoint(newLayerId, pt);  // delta save — tiny payload
   }
 
   function _saveEdit(origLayerId, ptId, lat, lng) {
@@ -226,7 +227,8 @@ const Points = (() => {
     if (newLayerId !== origLayerId) Layers.renderLayer(newLayerId, selectedPoint, _onMarkerClick);
     mapRef.closePopup();
     UI.toast('Point saved');
-    onSave(Layers.getAllPoints());
+    const updated = Layers.findPoint(newLayerId, ptId);
+    if (updated) Sync.updatePoint(newLayerId, updated);  // delta save
   }
 
   function deletePoint(layerId, ptId) {
@@ -236,7 +238,7 @@ const Points = (() => {
     Layers.renderLayer(layerId, null, _onMarkerClick);
     mapRef.closePopup();
     UI.toast('Point deleted');
-    onSave(Layers.getAllPoints());
+    Sync.deletePoint(layerId, ptId);  // delta save — just sends the id
   }
 
   function copySelected() {
@@ -251,10 +253,11 @@ const Points = (() => {
     const user = typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '';
     const now  = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
     const ptId = 'pt_' + Date.now();
-    Layers.addPoint(copiedPoint.layerId, { ...copiedPoint.pt, id:ptId, lat:latlng.lat, lng:latlng.lng, addedBy:user, addedAt:now, editedBy:'', editedAt:'' });
+    const pt   = { ...copiedPoint.pt, id:ptId, lat:latlng.lat, lng:latlng.lng, addedBy:user, addedAt:now, editedBy:'', editedAt:'' };
+    Layers.addPoint(copiedPoint.layerId, pt);
     Layers.renderLayer(copiedPoint.layerId, selectedPoint, _onMarkerClick);
     UI.toast('Point pasted');
-    onSave(Layers.getAllPoints());
+    Sync.addPoint(copiedPoint.layerId, pt);  // delta save
   }
 
   function pasteAtCenter() { pasteAt(mapRef.getCenter()); }
