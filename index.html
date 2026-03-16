@@ -26,33 +26,37 @@
 body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 
 /* ── TOOLBAR ── */
+:root { --toolbar-h: 50px; }
 #draw-toolbar {
-  height:var(--toolbar-h);background:var(--panel);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:2px;padding:0 8px;
+  height:var(--toolbar-h);background:var(--panel2);border-bottom:2px solid var(--border2);
+  display:flex;align-items:center;gap:3px;padding:0 12px;
   position:relative;z-index:1100;flex-shrink:0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
-.toolbar-sep { width:1px;height:20px;background:var(--border2);margin:0 4px;flex-shrink:0; }
+.toolbar-sep { width:1px;height:24px;background:var(--border2);margin:0 6px;flex-shrink:0; }
 .toolbar-btn {
-  display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:var(--radius);
+  display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius);
   border:1px solid transparent;background:transparent;color:var(--muted);
-  font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all 0.1s;
-  white-space:nowrap;position:relative;
+  font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:all 0.12s;
+  white-space:nowrap;position:relative;font-weight:500;
 }
-.toolbar-btn:hover{background:rgba(255,255,255,0.06);color:var(--text);border-color:var(--border2);}
-.toolbar-btn.active{background:rgba(104,148,158,0.18);color:var(--accent);border-color:var(--accent);}
-.toolbar-btn:disabled{opacity:0.3;cursor:not-allowed;}
-.toolbar-btn svg{flex-shrink:0;}
+.toolbar-btn:hover{background:rgba(255,255,255,0.08);color:var(--text);border-color:var(--border2);}
+.toolbar-btn.active{background:rgba(104,148,158,0.25);color:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 1px rgba(104,148,158,0.3);}
+.toolbar-btn:disabled{opacity:0.28;cursor:not-allowed;}
+.toolbar-btn svg{flex-shrink:0;width:14px;height:14px;}
 .toolbar-btn .tt{
-  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
-  background:#000;color:#fff;font-size:10px;padding:3px 7px;border-radius:3px;
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:#000;color:#e6edf3;font-size:10px;padding:4px 8px;border-radius:4px;
   white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:9999;
+  border:1px solid var(--border2);
 }
 .toolbar-btn:hover .tt{opacity:1;}
-#toolbar-version{margin-left:auto;font-size:9px;color:var(--muted2);letter-spacing:0.1em;flex-shrink:0;}
+#toolbar-version{margin-left:auto;font-size:9px;color:var(--muted2);letter-spacing:0.1em;flex-shrink:0;padding-left:8px;border-left:1px solid var(--border2);}
 #toolbar-hint{
-  position:absolute;top:calc(100% + 2px);left:50%;transform:translateX(-50%);
-  background:rgba(0,0,0,0.8);color:#fff;font-size:10px;padding:3px 10px;border-radius:3px;
+  position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);
+  background:rgba(17,94,107,0.95);color:#fff;font-size:10px;padding:4px 12px;border-radius:4px;
   white-space:nowrap;display:none;z-index:1200;pointer-events:none;
+  border:1px solid var(--accent);
 }
 
 /* ── DRAW OPTIONS BAR ── */
@@ -70,7 +74,7 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
 .opt-sep{width:1px;height:16px;background:var(--border2);}
 
 /* ── MAIN ── */
-#main{display:flex;flex:1;overflow:hidden;min-height:0;height:calc(100vh - var(--toolbar-h));}
+#main{display:flex;flex:1;overflow:hidden;min-height:0;height:calc(100vh - var(--toolbar-h) - 40px);}
 
 /* ── SIDEBAR ── */
 #sidebar{
@@ -188,7 +192,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 
 /* ── TOTALS + CREDIT ── */
 #total-summary{padding:4px 10px;font-size:9px;color:var(--muted2);border-top:1px solid var(--border);flex-shrink:0;}
-#credit-footer{padding:5px 10px 7px;font-size:8px;color:var(--border2);line-height:1.5;flex-shrink:0;}
+#credit-footer{padding:5px 10px 7px;font-size:8px;color:var(--muted2);line-height:1.5;flex-shrink:0;border-top:1px solid var(--border);}
 
 /* ── BOTTOM PANEL ── */
 #bottom-panel{border-top:1px solid var(--border);padding:7px;display:flex;flex-direction:column;gap:5px;flex-shrink:0;}
@@ -238,8 +242,15 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .search-pin-stem{width:2px;height:6px;background:#e05252;margin-top:-1px;}
 
 /* ── ANNOTATION LABELS ── */
-.map-label{background:rgba(13,17,23,0.8);color:#e6edf3;font-family:'DM Mono',monospace;font-size:9px;padding:1px 4px;border-radius:2px;white-space:nowrap;border:1px solid rgba(104,148,158,0.25);}
-.ann-text{background:rgba(13,17,23,0.85);font-family:'DM Mono',monospace;font-size:12px;font-weight:500;padding:3px 7px;border-radius:4px;white-space:nowrap;border:1px solid rgba(255,255,255,0.12);cursor:pointer;}
+.map-label{
+  background:rgba(13,17,23,0.72);color:#e6edf3;
+  font-family:'DM Mono',monospace;font-size:9px;
+  padding:2px 5px;border-radius:3px;
+  white-space:normal;max-width:120px;word-wrap:break-word;
+  border:1px solid rgba(104,148,158,0.2);
+  line-height:1.3;
+}
+.ann-text{background:rgba(13,17,23,0.75);font-family:'DM Mono',monospace;font-size:12px;font-weight:500;padding:3px 7px;border-radius:4px;white-space:nowrap;border:1px solid rgba(255,255,255,0.12);cursor:pointer;}
 .measure-label{background:rgba(245,215,110,0.12);color:#f5d76e;font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;border-radius:3px;border:1px solid rgba(245,215,110,0.35);white-space:nowrap;}
 
 /* ── CONTEXT MENU ── */
@@ -307,7 +318,19 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 #login-submit{background:var(--teal);color:#fff;border:none;font-family:'DM Mono',monospace;font-size:12px;padding:9px;border-radius:var(--radius);cursor:pointer;width:100%;}
 #login-submit:hover{background:var(--accent);}
 
-/* ── TOAST ── */
+/* ── GEAR BTN & STYLE PANEL ── */
+.gear-btn{width:16px;height:16px;border:none;background:transparent;color:var(--muted2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:opacity 0.1s;padding:0;}
+.layer-row:hover .gear-btn{opacity:1;}
+.gear-btn:hover{color:var(--accent);}
+.layer-style-panel{display:none;background:var(--panel2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px;margin:0 8px 4px;flex-direction:column;gap:8px;}
+.layer-style-panel.open{display:flex;}
+.sp-row{display:flex;align-items:center;gap:8px;}
+.sp-row label{font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.08em;min-width:38px;flex-shrink:0;}
+.sp-row input[type=text],.sp-row select{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:'DM Mono',monospace;font-size:10px;padding:3px 6px;border-radius:3px;outline:none;}
+.sp-row input[type=color]{width:32px;height:22px;padding:1px;border-radius:3px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;}
+.sp-btns{display:flex;gap:5px;margin-top:2px;}
+.sp-save{flex:1;padding:4px;background:var(--teal);color:#fff;border:none;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
+.sp-cancel{padding:4px 8px;background:transparent;color:var(--muted2);border:1px solid var(--border2);border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
 #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:20px;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:9999;white-space:nowrap;}
 #toast.show{opacity:1;}
 </style>
@@ -316,59 +339,58 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 
 <!-- TOOLBAR -->
 <div id="draw-toolbar">
-  <button class="toolbar-btn active" id="place-btn" onclick="Points.togglePlaceMode()" title="Place point">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-    <span>Place Point: ON</span>
-    <div class="tt">Click map to place · P to toggle</div>
-  </button>
-  <span id="active-pt-badge" style="font-size:9px;color:var(--muted2);margin-left:2px"></span>
+  <div style="display:flex;align-items:center;gap:6px;padding-right:10px;border-right:1px solid var(--border2);">
+    <span style="font-size:10px;color:var(--muted2);">Placing on:</span>
+    <div id="toolbar-active-layer" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mint);font-weight:500;">—</div>
+  </div>
 
   <div class="toolbar-sep"></div>
 
-  <button class="toolbar-btn" id="tool-line" data-tool onclick="Annotations.setTool('line')" title="Draw line">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+  <button class="toolbar-btn" id="tool-line" data-tool onclick="Annotations.setTool('line')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
     Line
     <div class="tt">Click points · Double-click to finish</div>
   </button>
-  <button class="toolbar-btn" id="tool-shape" data-tool onclick="Annotations.setTool('shape')" title="Draw shape">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 21,21 3,21"/></svg>
+  <button class="toolbar-btn" id="tool-shape" data-tool onclick="Annotations.setTool('shape')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,3 21,21 3,21"/></svg>
     Shape
     <div class="tt">Click points · Double-click to close</div>
   </button>
-  <button class="toolbar-btn" id="tool-text" data-tool onclick="Annotations.setTool('text')" title="Place text">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+  <button class="toolbar-btn" id="tool-text" data-tool onclick="Annotations.setTool('text')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
     Text
     <div class="tt">Click map to place text</div>
   </button>
-  <button class="toolbar-btn" id="tool-measure" data-tool onclick="Annotations.setTool('measure')" title="Measure distance">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>
+  <button class="toolbar-btn" id="tool-measure" data-tool onclick="Annotations.setTool('measure')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>
     Measure
     <div class="tt">Click points · Double-click to finish</div>
   </button>
-  <button class="toolbar-btn" id="tool-erase" data-tool onclick="Annotations.setTool('erase')" title="Erase annotation">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l13-13 4 4-9 9"/></svg>
+  <button class="toolbar-btn" id="tool-erase" data-tool onclick="Annotations.setTool('erase')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l13-13 4 4-9 9"/></svg>
     Erase
     <div class="tt">Click annotation to delete</div>
   </button>
 
   <div class="toolbar-sep"></div>
 
-  <button class="toolbar-btn" id="sv-btn" onclick="Points.setSVMode(true)" title="Street View">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+  <button class="toolbar-btn" id="sv-btn" onclick="Points.setSVMode(true)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
     Street View
     <div class="tt">Click map to open Street View</div>
   </button>
 
   <div class="toolbar-sep"></div>
 
-  <button class="toolbar-btn" id="undo-btn" onclick="Layers.undo()" disabled title="Undo (Ctrl+Z)">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+  <button class="toolbar-btn" id="undo-btn" onclick="Layers.undo()" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
     Undo
     <div class="tt">Ctrl+Z</div>
   </button>
-  <button class="toolbar-btn" onclick="UI.exportGeoJSON()" title="Export GeoJSON">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  <button class="toolbar-btn" onclick="UI.exportGeoJSON()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     Export
+    <div class="tt">Download GeoJSON</div>
   </button>
 
   <div id="toolbar-version"></div>
@@ -553,6 +575,9 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     zoomControl: true,
   });
 
+  // Force crosshair cursor on map container
+  map.getContainer().style.cursor = 'crosshair';
+
   L.control.scale({ imperial:true, metric:true, position:'bottomright' }).addTo(map);
 
   L.tileLayer(
@@ -571,10 +596,27 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   Points.init(map, allPoints => Sync.savePoints(allPoints));
   Annotations.init(map, anns => Sync.saveAnnotations(anns));
   UI.init(map, streetLabels, username => {
+    // Update toolbar active layer indicator whenever layer changes
+    function updateToolbarLayer() {
+      const id  = UI.getActiveLayerId();
+      const def = Layers.getDef(id);
+      const el  = document.getElementById('toolbar-active-layer');
+      if (el && def) {
+        const br = def.shape==='circle'?'50%':'2px';
+        const cnt = (Layers.getPoints(id)||[]).length;
+        el.innerHTML = `<span style="display:inline-block;width:10px;height:10px;background:${def.color};border-radius:${br};border:1.5px solid rgba(255,255,255,0.3);flex-shrink:0;"></span> ${def.name} <span style="color:var(--muted2);font-size:10px">(${cnt})</span>`;
+      }
+    }
+
+    // Patch _selectLayer to also update toolbar
+    const origSelect = UI._selectLayer;
+    UI._selectLayer = function(id) { origSelect(id); updateToolbarLayer(); };
+
     Sync.startRefresh(data => {
       Layers.loadFromSheets(data.points || {}, null);
       Points.renderAll();
       if (data.annotations) Annotations.loadFromSheets(data.annotations);
+      updateToolbarLayer();
     });
     Sync.startPresence(
       Presence.getSessionId(),
@@ -582,6 +624,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
       presenceData => Presence.render(presenceData)
     );
     Presence.render({});
+    updateToolbarLayer();
   });
 
   window.map = map;

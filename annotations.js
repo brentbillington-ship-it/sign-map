@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// annotations.js — v3.1c — Drawing with color/thickness/label options
+// annotations.js — v3.1d — Notifies Points when draw tool active
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Annotations = (() => {
@@ -12,18 +12,17 @@ const Annotations = (() => {
   let mapLayerGroup = null;
   let onSave        = null;
 
-  // Draw options (set via the options bar)
   let drawColor     = '#4da6ff';
   let drawThickness = 2;
   let drawLabel     = '';
 
   function init(map, onSaveCallback) {
-    mapRef  = map;
-    onSave  = onSaveCallback;
-    mapLayerGroup = L.layerGroup().addTo(mapRef);  // FIXED: mapRef not map
-    map.on('click',    _onMapClick);
+    mapRef        = map;
+    onSave        = onSaveCallback;
+    mapLayerGroup = L.layerGroup().addTo(mapRef);
+    map.on('click',     _onMapClick);
     map.on('mousemove', _onMouseMove);
-    map.on('dblclick', _onDblClick);
+    map.on('dblclick',  _onDblClick);
   }
 
   function loadFromSheets(data) {
@@ -33,27 +32,25 @@ const Annotations = (() => {
     annotations.forEach(_renderAnnotation);
   }
 
-  // ── DRAW OPTIONS ─────────────────────────────────────────────────────────────
   function setDrawColor(c)     { drawColor = c; }
   function setDrawThickness(t) { drawThickness = Number(t); }
   function setDrawLabel(l)     { drawLabel = l; }
 
-  // ── TOOL SELECTION ───────────────────────────────────────────────────────────
   function setTool(tool) {
     if (activeTool === tool) { clearTool(); return; }
     clearTool();
     activeTool = tool;
     drawPoints = [];
+
     document.querySelectorAll('.toolbar-btn[data-tool]').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById(`tool-${tool}`);
     if (btn) btn.classList.add('active');
 
-    // Show options bar and status hint
     _showOptionsBar(tool);
     _setStatusHint(tool);
 
-    // Disable place mode
-    if (typeof Points !== 'undefined') Points.setPlaceMode(false);
+    // Hand control to annotations — disable point placement
+    if (typeof Points !== 'undefined') Points.setDrawToolActive(true);
     mapRef.getContainer().style.cursor = tool === 'erase' ? 'not-allowed' : 'crosshair';
   }
 
@@ -62,9 +59,11 @@ const Annotations = (() => {
     drawPoints = [];
     if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer = null; }
     document.querySelectorAll('.toolbar-btn[data-tool]').forEach(b => b.classList.remove('active'));
-    mapRef.getContainer().style.cursor = '';
+    mapRef.getContainer().style.cursor = 'crosshair';
     _hideOptionsBar();
     _setStatusHint(null);
+    // Return control to point placement
+    if (typeof Points !== 'undefined') Points.setDrawToolActive(false);
   }
 
   function getActiveTool() { return activeTool; }
@@ -72,11 +71,11 @@ const Annotations = (() => {
   function _showOptionsBar(tool) {
     const bar = document.getElementById('draw-options-bar');
     if (!bar) return;
-    const showLabel = tool !== 'erase';
-    bar.style.display = showLabel ? 'flex' : 'none';
-    // Update color swatch preview
+    bar.style.display = tool && tool !== 'erase' ? 'flex' : 'none';
     const colorInput = document.getElementById('draw-color-input');
     if (colorInput) colorInput.value = drawColor;
+    const labelInput = document.getElementById('draw-label-input');
+    if (labelInput) { labelInput.value = drawLabel; labelInput.placeholder = tool==='measure' ? 'Override distance label…' : 'Optional label…'; }
   }
 
   function _hideOptionsBar() {
@@ -88,15 +87,14 @@ const Annotations = (() => {
     const hints = {
       line:    'Click to add points · Double-click to finish · Esc to cancel',
       shape:   'Click to draw shape · Double-click to close · Esc to cancel',
-      text:    'Click map to place text annotation',
-      measure: 'Click to measure · Double-click to finish and show distance',
+      text:    'Click map to place text annotation · Esc to cancel',
+      measure: 'Click to measure · Double-click to finish and show distance · Esc to cancel',
       erase:   'Click any annotation to delete it · Esc to cancel',
     };
     const el = document.getElementById('toolbar-hint');
     if (el) { el.textContent = tool ? hints[tool]||'' : ''; el.style.display = tool ? 'block' : 'none'; }
   }
 
-  // ── MAP EVENTS ───────────────────────────────────────────────────────────────
   function _onMapClick(e) {
     if (!activeTool) return;
     L.DomEvent.stopPropagation(e);
@@ -115,7 +113,6 @@ const Annotations = (() => {
   function _onDblClick(e) {
     if (!activeTool) return;
     L.DomEvent.stopPropagation(e);
-    // Remove the last point (it was added by the click before dblclick)
     if (drawPoints.length > 1) drawPoints.pop();
     if (activeTool === 'line')    _finishLine();
     if (activeTool === 'shape')   _finishShape();
@@ -126,9 +123,9 @@ const Annotations = (() => {
     if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer = null; }
     const pts = cursor ? [...drawPoints, cursor] : drawPoints;
     if (pts.length < 2) return;
-    const style = { color: drawColor, weight: drawThickness, dashArray: '5,4', opacity: 0.8 };
+    const style = { color: drawColor, weight: drawThickness, dashArray:'5,4', opacity:0.8 };
     if (activeTool === 'shape' && pts.length >= 3) {
-      drawLayer = L.polygon(pts, { ...style, fillColor: drawColor, fillOpacity: 0.1 }).addTo(mapRef);
+      drawLayer = L.polygon(pts, { ...style, fillColor:drawColor, fillOpacity:0.1 }).addTo(mapRef);
     } else {
       drawLayer = L.polyline(pts, style).addTo(mapRef);
     }
@@ -137,8 +134,8 @@ const Annotations = (() => {
   function _finishLine() {
     if (drawPoints.length < 2) { clearTool(); return; }
     if (drawLayer) { mapRef.removeLayer(drawLayer); drawLayer = null; }
-    const geojson = { type:'LineString', coordinates: drawPoints.map(p=>[p.lng,p.lat]) };
-    _saveAnnotation('line', geojson, { color:drawColor, weight:drawThickness }, drawLabel);
+    _saveAnnotation('line', { type:'LineString', coordinates:drawPoints.map(p=>[p.lng,p.lat]) },
+      { color:drawColor, weight:drawThickness }, drawLabel);
     clearTool();
   }
 
@@ -158,20 +155,20 @@ const Annotations = (() => {
     for (let i=1; i<drawPoints.length; i++) totalM += drawPoints[i-1].distanceTo(drawPoints[i]);
     const ft = totalM * 3.28084;
     const mi = totalM / 1609.34;
-    const label = drawLabel || (mi >= 0.1 ? `${mi.toFixed(2)} mi (${Math.round(ft).toLocaleString()} ft)` : `${Math.round(ft).toLocaleString()} ft`);
-    _saveAnnotation('measure', { type:'LineString', coordinates: drawPoints.map(p=>[p.lng,p.lat]) },
-      { color: drawColor||'#f5d76e', weight: drawThickness, dashArray:'6,4' }, label);
+    const autoLabel = mi >= 0.1 ? `${mi.toFixed(2)} mi (${Math.round(ft).toLocaleString()} ft)` : `${Math.round(ft).toLocaleString()} ft`;
+    const label = drawLabel || autoLabel;
+    _saveAnnotation('measure', { type:'LineString', coordinates:drawPoints.map(p=>[p.lng,p.lat]) },
+      { color:drawColor||'#f5d76e', weight:drawThickness, dashArray:'6,4' }, label);
     clearTool();
   }
 
   function _placeText(latlng) {
     const text = drawLabel || prompt('Enter annotation text:');
-    if (!text) return;
-    _saveAnnotation('text', { type:'Point', coordinates:[latlng.lng,latlng.lat] }, { color: drawColor }, text);
+    if (!text) { clearTool(); return; }
+    _saveAnnotation('text', { type:'Point', coordinates:[latlng.lng,latlng.lat] }, { color:drawColor }, text);
     clearTool();
   }
 
-  // ── RENDER ────────────────────────────────────────────────────────────────────
   function _renderAnnotation(ann) {
     let lyr;
     const g = ann.geojson;
@@ -190,11 +187,10 @@ const Annotations = (() => {
       lyr = L.polyline(coords, { color:s.color||'#4da6ff', weight:s.weight??2, dashArray:s.dashArray||'' });
       if (ann.label) {
         const mid = coords[Math.floor(coords.length/2)];
-        const lblLyr = L.marker(mid, {
+        mapLayerGroup.addLayer(L.marker(mid, {
           icon: L.divIcon({ html:`<div class="measure-label">${_esc(ann.label)}</div>`, className:'', iconAnchor:[0,12] }),
           interactive:false,
-        });
-        mapLayerGroup.addLayer(lblLyr);
+        }));
       }
     }
 

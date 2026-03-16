@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// parcels_layer.js — v3.1c — Read-only parcels, click passthrough in place mode
+// parcels_layer.js — v3.1d — No pointer cursor, click passthrough when placing
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ParcelsLayer = (() => {
@@ -10,7 +10,7 @@ const ParcelsLayer = (() => {
   let searchPin     = null;
   let searchPinData = null;
 
-  const STYLE_DEFAULT  = { color:'#f5d76e', weight:1.2, opacity:0.6, fillColor:'#f5d76e', fillOpacity:0.0 };
+  const STYLE_DEFAULT  = { color:'#f5d76e', weight:1.2, opacity:0.6, fillColor:'#f5d76e', fillOpacity:0.0, interactive: true };
   const STYLE_HOVER    = { weight:2, color:'#ffe066', fillOpacity:0.06 };
   const STYLE_SELECTED = { weight:2.5, color:'#ffffff', fillColor:'#ffffff', fillOpacity:0.15 };
 
@@ -31,7 +31,6 @@ const ParcelsLayer = (() => {
     return { name, owner, addr1, addr2 };
   }
 
-  // ── INIT ────────────────────────────────────────────────────────────────────
   function init(map) {
     mapRef = map;
     if (typeof PARCELS_GEOJSON === 'undefined') {
@@ -39,24 +38,37 @@ const ParcelsLayer = (() => {
       return;
     }
     geojsonLayer = L.geoJSON(PARCELS_GEOJSON, {
-      style:         () => ({...STYLE_DEFAULT}),
+      style: () => ({...STYLE_DEFAULT}),
       onEachFeature: _onEachFeature,
     }).addTo(mapRef);
   }
 
   function _onEachFeature(feature, layer) {
+    // Override the default pointer cursor Leaflet sets on interactive layers
+    layer.on('add', () => {
+      if (layer._path) layer._path.style.cursor = 'crosshair';
+    });
+
     layer.on({
       mouseover: e => {
-        // Don't show hover when placing points or in SV mode
-        if (typeof Points !== 'undefined' && (Points.isPlaceMode())) return;
+        // Only show hover highlight when not in draw mode
+        if (typeof Points !== 'undefined' && Points.isDrawToolActive()) return;
         if (e.target !== selectedLayer) e.target.setStyle(STYLE_HOVER);
+        // Keep crosshair cursor always
+        if (e.target._path) e.target._path.style.cursor = 'crosshair';
       },
       mouseout: e => {
         if (e.target !== selectedLayer) geojsonLayer.resetStyle(e.target);
+        if (e.target._path) e.target._path.style.cursor = 'crosshair';
       },
       click: e => {
-        // Pass through click to map when in place mode or SV mode
-        if (typeof Points !== 'undefined' && Points.isPlaceMode()) return;
+        // Let click fall through to map (for point placement) unless draw tool is off
+        // Only intercept if draw tools are all off AND not an annotation tool active
+        const annotationActive = typeof Annotations !== 'undefined' && Annotations.getActiveTool();
+        if (annotationActive) return;
+        // Show parcel popup but DON'T stop propagation — let map click handler also fire
+        // Actually: show popup on parcel only if there are no points to place
+        // We stop propagation to prevent double-firing, then show parcel info
         L.DomEvent.stopPropagation(e);
         _onSelect(feature, layer, e);
       },
@@ -97,7 +109,6 @@ const ParcelsLayer = (() => {
     if (selectedLayer) { geojsonLayer.resetStyle(selectedLayer); selectedLayer = null; }
   }
 
-  // ── VISIBILITY ───────────────────────────────────────────────────────────────
   function toggleVisibility() {
     visible = !visible;
     if (visible) mapRef.addLayer(geojsonLayer);
@@ -108,7 +119,6 @@ const ParcelsLayer = (() => {
     if (row) row.classList.toggle('hidden-layer',!visible);
   }
 
-  // ── PARCEL SEARCH ────────────────────────────────────────────────────────────
   function searchParcels(query) {
     if (!geojsonLayer || !query) return [];
     const q = query.toLowerCase().trim();
@@ -130,7 +140,6 @@ const ParcelsLayer = (() => {
     mapRef.once('click', _deselect);
   }
 
-  // ── ADDRESS SEARCH ────────────────────────────────────────────────────────────
   async function searchAddress(query) {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=us`;
     try {

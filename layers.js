@@ -1,14 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// layers.js — v3.1c — Layer state, markers, drag reorder, opacity, undo
+// layers.js — v3.1d
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Layers = (() => {
   let LAYER_DEFS    = {};
-  let layerOrder    = [];   // ordered array of layer ids
+  let layerOrder    = [];
   let allPoints     = {};
   let leafletGroups = {};
   let labelGroups   = {};
-  let opacityMap    = {};   // id -> 0..1
+  let opacityMap    = {};
   let visible       = {};
   let mapRef        = null;
   let customCounter = 0;
@@ -50,13 +50,10 @@ const Layers = (() => {
 
   function init(map) {
     mapRef = map;
-    // Restore saved order from localStorage
     const savedOrder = _loadOrder();
     CONFIG.LAYERS.forEach(def => _registerLayer(def));
-    // Apply saved order if valid
     if (savedOrder && savedOrder.length) {
       const validOrder = savedOrder.filter(id => LAYER_DEFS[id]);
-      // Add any new layers not in saved order
       layerOrder.forEach(id => { if (!validOrder.includes(id)) validOrder.push(id); });
       layerOrder = validOrder;
     }
@@ -88,20 +85,27 @@ const Layers = (() => {
     if (typeof UI !== 'undefined') UI.rebuildLayerLists();
   }
 
+  // ── STYLE EDITOR ─────────────────────────────────────────────────────────────
+  function updateLayerStyle(layerId, changes) {
+    if (!LAYER_DEFS[layerId]) return;
+    Object.assign(LAYER_DEFS[layerId], changes);
+    renderLayer(layerId, null, _lastMarkerClick);
+    if (typeof UI !== 'undefined') UI.rebuildLayerLists();
+  }
+
   // ── GETTERS ──────────────────────────────────────────────────────────────────
-  function getDefs()          { return LAYER_DEFS; }
-  function getDef(id)         { return LAYER_DEFS[id]; }
-  function getPoints(id)      { return allPoints[id] || []; }
-  function getAllPoints()      { return allPoints; }
-  function isVisible(id)      { return !!visible[id]; }
-  function getOrder()         { return layerOrder; }
-  function getOpacity(id)     { return opacityMap[id] ?? 1; }
+  function getDefs()      { return LAYER_DEFS; }
+  function getDef(id)     { return LAYER_DEFS[id]; }
+  function getPoints(id)  { return allPoints[id] || []; }
+  function getAllPoints()  { return allPoints; }
+  function isVisible(id)  { return !!visible[id]; }
+  function getOrder()     { return layerOrder; }
+  function getOpacity(id) { return opacityMap[id] ?? 1; }
 
   // ── SEED DATA ────────────────────────────────────────────────────────────────
   function applySeedIfEmpty(data) {
     const hasAny = Object.values(data||{}).some(arr => arr && arr.length > 0);
-    if (hasAny) return false;
-    if (!CONFIG.SEED_POINTS) return false;
+    if (hasAny || !CONFIG.SEED_POINTS) return false;
     Object.entries(CONFIG.SEED_POINTS).forEach(([layerId, pts]) => {
       allPoints[layerId] = pts.map(p => ({...p, addedBy:'Brent', editedBy:'', editedAt:''}));
     });
@@ -124,20 +128,19 @@ const Layers = (() => {
     const def = LAYER_DEFS[layerId];
     if (!def) return L.divIcon({ html:'', className:'', iconSize:[10,10] });
     const isSquare = def.shape === 'square';
-    const s = isSquare ? 16 : 10;  // small circles 20% smaller (was 12->10)
+    const s = isSquare ? 16 : 10;
     const op = opacityMap[layerId] ?? 1;
     const ring = selected
       ? `box-shadow:0 0 0 2px #fff,0 2px 8px rgba(0,0,0,0.7);`
       : `box-shadow:0 1px 5px rgba(0,0,0,0.5);`;
-    const html = `<div style="
+    const html = `<div class="chaka-marker" style="
       width:${s}px;height:${s}px;
       background:${def.color};
       border-radius:${isSquare?'2px':'50%'};
       border:2px solid rgba(255,255,255,0.35);
       opacity:${op};
       ${ring}
-      transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
-    " class="chaka-marker${selected?' marker-selected':''}"></div>`;
+    "></div>`;
     return L.divIcon({ html, className:'', iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2-4] });
   }
 
@@ -154,10 +157,7 @@ const Layers = (() => {
 
     (allPoints[layerId]||[]).forEach(pt => {
       const isSel = selectedPoint && selectedPoint.layerId===layerId && selectedPoint.ptId===pt.id;
-      const marker = L.marker([pt.lat, pt.lng], {
-        icon: makeIcon(layerId, isSel),
-        draggable: true,
-      });
+      const marker = L.marker([pt.lat, pt.lng], { icon: makeIcon(layerId, isSel), draggable: true });
       marker._ptLayerId = layerId;
       marker._ptId = pt.id;
 
@@ -178,21 +178,19 @@ const Layers = (() => {
 
       if (visible[layerId]) leafletGroups[layerId].addLayer(marker);
 
-      // Label
+      // Labels
       if (showLabels && pt.name) {
-        const shortName = pt.name.split('—')[0].trim().split(' ').slice(0,3).join(' ');
+        const shortName = pt.name.split('—')[0].trim().split(' ').slice(0,4).join(' ');
         const lbl = L.marker([pt.lat, pt.lng], {
           icon: L.divIcon({
             html: `<div class="map-label">${_esc(shortName)}</div>`,
-            className: '', iconAnchor: [-6, -6],
+            className: '', iconAnchor: [-6, 6],
           }),
-          interactive: false,
-          zIndexOffset: -100,
+          interactive: false, zIndexOffset: -100,
         });
         if (visible[layerId]) labelGroups[layerId].addLayer(lbl);
       }
     });
-
     _updateCount(layerId);
   }
 
@@ -212,12 +210,6 @@ const Layers = (() => {
     const total = Object.values(allPoints).reduce((s,a) => s+(a||[]).length, 0);
     const el = document.getElementById('total-count');
     if (el) el.textContent = `${total} point${total!==1?'s':''}`;
-    // Active layer badge
-    const activeId = document.getElementById('active-layer-select-hidden')?.value;
-    if (activeId) {
-      const badge = document.getElementById('active-layer-badge');
-      if (badge) badge.textContent = (allPoints[activeId]||[]).length || '0';
-    }
   }
 
   // ── VISIBILITY ────────────────────────────────────────────────────────────────
@@ -231,13 +223,11 @@ const Layers = (() => {
     else { mapRef.removeLayer(leafletGroups[layerId]); mapRef.removeLayer(labelGroups[layerId]); }
   }
 
-  // ── OPACITY ──────────────────────────────────────────────────────────────────
   function setOpacity(layerId, val) {
     opacityMap[layerId] = val;
     renderLayer(layerId, null, _lastMarkerClick);
   }
 
-  // ── LABELS ───────────────────────────────────────────────────────────────────
   function toggleLabels(show) { showLabels = show; renderAll(null, _lastMarkerClick); }
 
   // ── POINT CRUD ────────────────────────────────────────────────────────────────
@@ -253,12 +243,10 @@ const Layers = (() => {
     allPoints[toLayer].push({...pt, ...updates});
   }
 
-  // ── ZOOM TO LAYER ─────────────────────────────────────────────────────────────
   function zoomToLayer(layerId) {
     const pts = allPoints[layerId]||[];
     if (!pts.length) { if(typeof UI!=='undefined') UI.toast('No points on this layer'); return; }
-    const bounds = L.latLngBounds(pts.map(p=>[p.lat,p.lng]));
-    mapRef.fitBounds(bounds, { padding:[40,40], maxZoom:17 });
+    mapRef.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])), { padding:[40,40], maxZoom:17 });
   }
 
   // ── CUSTOM LAYERS ─────────────────────────────────────────────────────────────
@@ -277,20 +265,14 @@ const Layers = (() => {
     layerOrder = layerOrder.filter(id => id !== layerId);
   }
 
-  // ── ACTIVE LAYER MEMORY ───────────────────────────────────────────────────────
   function saveActiveLayer(id)  { localStorage.setItem('chakaLastLayer', id); }
   function getActiveLayer()     {
     const s = localStorage.getItem('chakaLastLayer');
     return (s && LAYER_DEFS[s]) ? s : (layerOrder[0] || CONFIG.LAYERS[0].id);
   }
 
-  // ── DUPLICATE CHECK ──────────────────────────────────────────────────────────
   function checkDuplicate(layerId, lat, lng) {
-    const pts = allPoints[layerId] || [];
-    return pts.some(p => {
-      const d = mapRef.distance([lat,lng],[p.lat,p.lng]);
-      return d < 10;
-    });
+    return (allPoints[layerId]||[]).some(p => mapRef.distance([lat,lng],[p.lat,p.lng]) < 10);
   }
 
   function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -303,6 +285,6 @@ const Layers = (() => {
     addCustomLayer, removeCustomLayer,
     saveActiveLayer, getActiveLayer,
     reorderLayer, pushUndo, undo,
-    checkDuplicate, _updateAllCounts,
+    checkDuplicate, updateLayerStyle, _updateAllCounts,
   };
 })();

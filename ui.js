@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ui.js — v3.1c — Full UI with custom dropdown, drag reorder, opacity, search
+// ui.js — v3.1d — Layer style editor, fixed credit color, custom dropdown
 // ─────────────────────────────────────────────────────────────────────────────
 
 const UI = (() => {
@@ -12,8 +12,7 @@ const UI = (() => {
   let _streetLabels = null;
   let _pendingPinSave = null;
   let _sidebarCollapsed = false;
-  let _coordsEl = null;
-  let _dragSrc  = null;  // drag reorder source id
+  let _dragSrc = null;
 
   // ── INIT ────────────────────────────────────────────────────────────────────
   function init(map, streetLabelsLayer, onLoginCallback) {
@@ -24,37 +23,34 @@ const UI = (() => {
     document.getElementById('login-name').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pw').focus(); });
     document.addEventListener('click', e => {
       hideCtxMenu();
-      // Close custom dropdown if click outside
       if (!e.target.closest('#custom-layer-dropdown')) _closeLayerDropdown();
+      if (!e.target.closest('.layer-style-panel') && !e.target.closest('.gear-btn')) _closeAllStylePanels();
     });
-    buildSidebar();
     _initCoords();
     _initSearch();
+    buildSidebar();
     checkSavedAuth();
   }
 
-  // ── COORDS DISPLAY ───────────────────────────────────────────────────────────
+  // ── COORDS ───────────────────────────────────────────────────────────────────
   function _initCoords() {
-    _coordsEl = document.getElementById('coords-display');
-    if (!_coordsEl || !mapRef) return;
+    const el = document.getElementById('coords-display');
+    if (!el || !mapRef) return;
     mapRef.on('mousemove', e => {
-      const lat = e.latlng.lat.toFixed(5);
-      const lng = e.latlng.lng.toFixed(5);
-      _coordsEl.textContent = `${lat}, ${lng}`;
+      el.textContent = `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
     });
   }
 
   // ── SIDEBAR COLLAPSE ─────────────────────────────────────────────────────────
   function toggleSidebar() {
     _sidebarCollapsed = !_sidebarCollapsed;
-    const sidebar = document.getElementById('sidebar');
-    const btn     = document.getElementById('collapse-btn');
-    sidebar.classList.toggle('collapsed', _sidebarCollapsed);
+    document.getElementById('sidebar').classList.toggle('collapsed', _sidebarCollapsed);
+    const btn = document.getElementById('collapse-btn');
     if (btn) btn.textContent = _sidebarCollapsed ? '›' : '‹';
     setTimeout(() => mapRef.invalidateSize(), 310);
   }
 
-  // ── SEARCH ──────────────────────────────────────────────────────────────────
+  // ── SEARCH ───────────────────────────────────────────────────────────────────
   let _searchTimeout = null;
   function _initSearch() {
     const input = document.getElementById('search-input');
@@ -98,40 +94,33 @@ const UI = (() => {
     });
   }
 
-  // ── CUSTOM LAYER DROPDOWN (with swatches) ─────────────────────────────────
+  // ── CUSTOM LAYER DROPDOWN ─────────────────────────────────────────────────
   function _buildLayerDropdown() {
     const wrap = document.getElementById('custom-layer-dropdown');
     if (!wrap) return;
     const activeId = Layers.getActiveLayer();
     const def = Layers.getDef(activeId);
+    const cnt = (Layers.getPoints(activeId)||[]).length;
 
-    // Trigger button
     wrap.innerHTML = `
       <button id="layer-dropdown-btn" onclick="UI._toggleLayerDropdown(event)">
         ${def ? `<span class="dd-swatch" style="background:${def.color};border-radius:${def.shape==='circle'?'50%':'2px'}"></span><span class="dd-label">${_esc(def.name)}</span>` : 'Select layer'}
         <span class="dd-arrow">▾</span>
-        <span class="dd-badge" id="active-layer-badge">${(Layers.getPoints(activeId)||[]).length||''}</span>
+        ${cnt ? `<span class="dd-badge">${cnt}</span>` : ''}
       </button>
       <div id="layer-dropdown-list" style="display:none">
         ${Layers.getOrder().filter(id=>Layers.getDef(id)).map(id => {
           const d = Layers.getDef(id);
-          const cnt = (Layers.getPoints(id)||[]).length;
+          const c = (Layers.getPoints(id)||[]).length;
           return `<div class="dd-option${id===activeId?' selected':''}" onclick="UI._selectLayer('${id}')">
             <span class="dd-swatch" style="background:${d.color};border-radius:${d.shape==='circle'?'50%':'2px'}"></span>
             <span class="dd-label">${_esc(d.name)}</span>
-            ${cnt?`<span class="dd-cnt">${cnt}</span>`:''}
+            ${c?`<span class="dd-cnt">${c}</span>`:''}
           </div>`;
         }).join('')}
       </div>
+      <input type="hidden" id="active-layer-select-hidden" value="${activeId}"/>
     `;
-    // Hidden input for compatibility
-    let hidden = document.getElementById('active-layer-select-hidden');
-    if (!hidden) {
-      hidden = document.createElement('input');
-      hidden.type = 'hidden'; hidden.id = 'active-layer-select-hidden';
-      wrap.appendChild(hidden);
-    }
-    hidden.value = activeId;
   }
 
   function _toggleLayerDropdown(e) {
@@ -149,7 +138,6 @@ const UI = (() => {
     Layers.saveActiveLayer(id);
     _buildLayerDropdown();
     _closeLayerDropdown();
-    toast(`Active: ${Layers.getDef(id)?.name}`);
     Layers._updateAllCounts();
   }
 
@@ -157,6 +145,31 @@ const UI = (() => {
   function getActiveLayerId() {
     const h = document.getElementById('active-layer-select-hidden');
     return h ? h.value : Layers.getActiveLayer();
+  }
+
+  // ── LAYER STYLE EDITOR ────────────────────────────────────────────────────
+  function _closeAllStylePanels() {
+    document.querySelectorAll('.layer-style-panel.open').forEach(p => p.classList.remove('open'));
+  }
+
+  function openStylePanel(layerId, e) {
+    e.stopPropagation();
+    _closeAllStylePanels();
+    const panel = document.getElementById(`style-panel-${layerId}`);
+    if (panel) panel.classList.toggle('open');
+  }
+
+  function applyStyle(layerId) {
+    const nameEl  = document.getElementById(`sp-name-${layerId}`);
+    const colorEl = document.getElementById(`sp-color-${layerId}`);
+    const shapeEl = document.getElementById(`sp-shape-${layerId}`);
+    const changes = {};
+    if (nameEl  && nameEl.value.trim())  changes.name  = nameEl.value.trim();
+    if (colorEl) changes.color = colorEl.value;
+    if (shapeEl) changes.shape = shapeEl.value;
+    Layers.updateLayerStyle(layerId, changes);
+    _closeAllStylePanels();
+    toast('Layer updated');
   }
 
   // ── SIDEBAR BUILD ────────────────────────────────────────────────────────────
@@ -171,88 +184,99 @@ const UI = (() => {
       const el = document.getElementById(id); if (el) el.innerHTML = '';
     });
     let hasCustom = false;
-    // Use layerOrder for correct ordering
     Layers.getOrder().forEach(id => {
       const def = Layers.getDef(id);
       if (!def) return;
-      if (def.group==='large')       document.getElementById('large-layers-list')?.appendChild(_layerRow(def));
-      else if (def.group==='small')  document.getElementById('small-layers-list')?.appendChild(_layerRow(def));
-      else if (def.group==='custom') { document.getElementById('custom-layers-list')?.appendChild(_layerRow(def, true)); hasCustom=true; }
+      const wrap = _layerRowWrap(def, def.group==='custom');
+      if (def.group==='large')       document.getElementById('large-layers-list')?.appendChild(wrap);
+      else if (def.group==='small')  document.getElementById('small-layers-list')?.appendChild(wrap);
+      else if (def.group==='custom') { document.getElementById('custom-layers-list')?.appendChild(wrap); hasCustom=true; }
     });
     const cs = document.getElementById('custom-layers-section');
     if (cs) cs.style.display = hasCustom ? 'block' : 'none';
     _buildLayerDropdown();
   }
 
-  function _layerRow(def, isCustom=false) {
+  function _layerRowWrap(def, isCustom=false) {
+    const isCircle = def.shape==='circle';
+    const opacity  = Math.round(Layers.getOpacity(def.id)*100);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'layer-row-wrap';
+
+    // Main row
     const row = document.createElement('div');
     row.className = 'layer-row' + (Layers.isVisible(def.id)?'':' hidden-layer');
     row.id = `row-${def.id}`;
     row.draggable = true;
-    const isCircle = def.shape==='circle';
-    const opacity  = Math.round(Layers.getOpacity(def.id)*100);
     row.innerHTML = `
       <span class="drag-handle" title="Drag to reorder">⠿</span>
       <div class="layer-toggle checked" id="tog-${def.id}">✓</div>
       <div class="layer-icon${isCircle?' circle':''}" style="background:${def.color}"></div>
       <span class="layer-name">${_esc(def.name)}</span>
       <span class="layer-count" id="cnt-${def.id}"></span>
+      <button class="gear-btn" title="Edit style" onclick="UI.openStylePanel('${def.id}',event)">⚙</button>
       ${isCustom?`<button class="layer-remove" onclick="UI.removeCustomLayer('${def.id}',event)" title="Remove">×</button>`:''}
     `;
-    // Opacity slider (shown on hover via CSS, built as expandable)
-    const opRow = document.createElement('div');
-    opRow.className = 'opacity-row';
-    opRow.id = `op-row-${def.id}`;
-    opRow.innerHTML = `<span class="op-label">Opacity</span><input type="range" min="10" max="100" value="${opacity}" class="op-slider" oninput="UI.setLayerOpacity('${def.id}',this.value/100)"><span class="op-val">${opacity}%</span>`;
 
-    // Click row = set active layer
     row.addEventListener('click', e => {
-      if (['layer-toggle','drag-handle','layer-remove','op-slider'].some(c=>e.target.classList.contains(c))) return;
+      if (['layer-toggle','drag-handle','layer-remove','gear-btn'].some(c=>e.target.classList.contains(c))) return;
       _selectLayer(def.id);
-      // Toggle opacity row
       opRow.classList.toggle('visible');
     });
-
     row.querySelector('.layer-toggle').addEventListener('click', e => { e.stopPropagation(); Layers.toggleVisibility(def.id); });
-
-    // Right-click = zoom to layer
-    row.addEventListener('contextmenu', e => {
-      e.preventDefault(); e.stopPropagation();
-      Layers.zoomToLayer(def.id);
-    });
-
-    // Drag reorder
-    row.addEventListener('dragstart', e => { _dragSrc = def.id; row.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    row.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); Layers.zoomToLayer(def.id); });
+    row.addEventListener('dragstart', e => { _dragSrc=def.id; row.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
     row.addEventListener('dragend',   () => { _dragSrc=null; row.classList.remove('dragging'); });
-    row.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect='move'; row.classList.add('drag-over'); });
+    row.addEventListener('dragover',  e => { e.preventDefault(); row.classList.add('drag-over'); });
     row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
-    row.addEventListener('drop',      e => { e.preventDefault(); row.classList.remove('drag-over'); if(_dragSrc && _dragSrc!==def.id) Layers.reorderLayer(_dragSrc, def.id); });
+    row.addEventListener('drop',      e => { e.preventDefault(); row.classList.remove('drag-over'); if(_dragSrc&&_dragSrc!==def.id) Layers.reorderLayer(_dragSrc,def.id); });
 
-    const wrap = document.createElement('div');
-    wrap.className = 'layer-row-wrap';
+    // Opacity row
+    const opRow = document.createElement('div');
+    opRow.className = 'opacity-row';
+    opRow.innerHTML = `<span class="op-label">Opacity</span><input type="range" min="10" max="100" value="${opacity}" class="op-slider" oninput="UI.setLayerOpacity('${def.id}',this.value/100)"><span class="op-val">${opacity}%</span>`;
+
+    // Style editor panel
+    const panel = document.createElement('div');
+    panel.className = 'layer-style-panel';
+    panel.id = `style-panel-${def.id}`;
+    panel.innerHTML = `
+      <div class="sp-row"><label>Name</label><input id="sp-name-${def.id}" type="text" value="${_esc(def.name)}" placeholder="Layer name"/></div>
+      <div class="sp-row"><label>Color</label><input id="sp-color-${def.id}" type="color" value="${def.color}"/></div>
+      <div class="sp-row"><label>Shape</label>
+        <select id="sp-shape-${def.id}">
+          <option value="circle"${def.shape==='circle'?' selected':''}>Circle (small)</option>
+          <option value="square"${def.shape==='square'?' selected':''}>Square (large)</option>
+        </select>
+      </div>
+      <div class="sp-btns">
+        <button class="sp-save" onclick="UI.applyStyle('${def.id}')">Apply</button>
+        <button class="sp-cancel" onclick="UI._closeAllStylePanels()">Cancel</button>
+      </div>
+    `;
+
     wrap.appendChild(row);
     wrap.appendChild(opRow);
+    wrap.appendChild(panel);
     return wrap;
   }
 
   function setLayerOpacity(layerId, val) {
     Layers.setOpacity(layerId, val);
-    const opRow = document.getElementById(`op-row-${layerId}`);
-    if (opRow) {
-      const valEl = opRow.querySelector('.op-val');
-      if (valEl) valEl.textContent = Math.round(val*100)+'%';
-    }
+    const opRow = document.querySelector(`#row-${layerId}`)?.parentElement?.querySelector('.opacity-row');
+    if (opRow) { const el = opRow.querySelector('.op-val'); if(el) el.textContent=Math.round(val*100)+'%'; }
   }
 
   function _buildParcelRow() {
     const c = document.getElementById('parcel-layer-row'); if (!c) return;
     c.innerHTML = `
       <div class="layer-row" id="row-parcels" onclick="ParcelsLayer.toggleVisibility()">
-        <span class="drag-handle" style="opacity:0.2;cursor:default">⠿</span>
+        <span class="drag-handle" style="opacity:0.15;cursor:default">⠿</span>
         <div class="layer-toggle checked" id="tog-parcels">✓</div>
         <div class="layer-icon" style="background:#f5d76e;border-radius:2px"></div>
         <span class="layer-name">Property Lines</span>
-        <span style="font-size:9px;color:var(--muted);margin-left:auto;padding-right:2px">read-only</span>
+        <span style="font-size:9px;color:var(--muted2);margin-left:auto;padding-right:4px">read-only</span>
       </div>
     `;
   }
@@ -260,7 +284,6 @@ const UI = (() => {
   // ── CUSTOM LAYER ─────────────────────────────────────────────────────────────
   function openAddLayer()  { document.getElementById('add-layer-modal').classList.add('open'); }
   function closeAddLayer() { document.getElementById('add-layer-modal').classList.remove('open'); }
-
   function updateAlbPreview() {
     const color=document.getElementById('alb-color').value;
     const shape=document.getElementById('alb-shape').value;
@@ -268,7 +291,6 @@ const UI = (() => {
     prev.style.background=color; prev.style.borderRadius=shape==='circle'?'50%':'2px';
     document.getElementById('alb-color-hex').textContent=color;
   }
-
   function confirmAddLayer() {
     const name=(document.getElementById('alb-name').value||'').trim();
     const color=document.getElementById('alb-color').value;
@@ -278,7 +300,6 @@ const UI = (() => {
     rebuildLayerLists(); _selectLayer(id);
     closeAddLayer(); toast(`Layer "${name}" added`);
   }
-
   function removeCustomLayer(layerId,e) {
     e.stopPropagation();
     if(!confirm(`Remove "${Layers.getDef(layerId)?.name}"? All points will be lost.`)) return;
@@ -286,20 +307,16 @@ const UI = (() => {
     Sync.savePoints(Layers.getAllPoints());
   }
 
-  // ── LAYER PICKER FOR PIN SAVE ─────────────────────────────────────────────
+  // ── LAYER PICKER FOR PIN ─────────────────────────────────────────────────
   function openLayerPickerForPin(lat, lng, label, onDone) {
     _pendingPinSave = { lat, lng, label, onDone };
     const modal = document.getElementById('layer-pick-modal');
     const sel   = document.getElementById('lp-layer-select');
-    sel.innerHTML = Layers.getOrder().filter(id=>Layers.getDef(id)).map(id=>{
-      const d=Layers.getDef(id);
-      return `<option value="${d.id}">${_esc(d.name)}</option>`;
-    }).join('');
+    sel.innerHTML = Layers.getOrder().filter(id=>Layers.getDef(id)).map(id=>`<option value="${id}">${_esc(Layers.getDef(id).name)}</option>`).join('');
     sel.value = getActiveLayerId();
     document.getElementById('lp-name').value = label.split(',').slice(0,2).join(',').trim();
     modal.classList.add('open');
   }
-
   function confirmLayerPick() {
     if (!_pendingPinSave) return;
     const layerId = document.getElementById('lp-layer-select').value;
@@ -308,22 +325,21 @@ const UI = (() => {
     const now     = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
     const ptId    = 'pt_'+Date.now();
     Layers.pushUndo(Layers.getAllPoints());
-    Layers.addPoint(layerId, { id:ptId, lat:_pendingPinSave.lat, lng:_pendingPinSave.lng, name, notes:'', addedBy:user, addedAt:now, editedBy:'', editedAt:'' });
-    Layers.renderLayer(layerId, null, null);
+    Layers.addPoint(layerId,{id:ptId,lat:_pendingPinSave.lat,lng:_pendingPinSave.lng,name,notes:'',addedBy:user,addedAt:now,editedBy:'',editedAt:''});
+    Layers.renderLayer(layerId,null,null);
     Sync.savePoints(Layers.getAllPoints());
     toast(`Saved to "${Layers.getDef(layerId)?.name}"`);
-    if (_pendingPinSave.onDone) _pendingPinSave.onDone();
-    _pendingPinSave = null;
+    if(_pendingPinSave.onDone) _pendingPinSave.onDone();
+    _pendingPinSave=null;
     document.getElementById('layer-pick-modal').classList.remove('open');
   }
-
   function closeLayerPick() { _pendingPinSave=null; document.getElementById('layer-pick-modal').classList.remove('open'); }
 
   // ── LABELS / STREET LABELS ───────────────────────────────────────────────────
   function toggleLabels(show)       { Layers.toggleLabels(show); }
   function toggleStreetLabels(show) { if(_streetLabels){if(show)mapRef.addLayer(_streetLabels);else mapRef.removeLayer(_streetLabels);} }
 
-  // ── MY LOCATION ───────────────────────────────────────────────────────────────
+  // ── LOCATION ─────────────────────────────────────────────────────────────────
   function toggleMyLocation() {
     const btn=document.getElementById('location-btn');
     if(locationWatchId!==null){
@@ -336,13 +352,10 @@ const UI = (() => {
     locationWatchId=navigator.geolocation.watchPosition(pos=>{
       const{latitude:lat,longitude:lng,accuracy}=pos.coords;
       if(!locationMarker){
-        locationMarker=L.marker([lat,lng],{
-          icon:L.divIcon({html:`<div class="loc-dot"><div class="loc-pulse"></div></div>`,className:'',iconSize:[20,20],iconAnchor:[10,10]}),
-          zIndexOffset:2000
-        }).addTo(mapRef);
+        locationMarker=L.marker([lat,lng],{icon:L.divIcon({html:`<div class="loc-dot"><div class="loc-pulse"></div></div>`,className:'',iconSize:[20,20],iconAnchor:[10,10]}),zIndexOffset:2000}).addTo(mapRef);
         mapRef.setView([lat,lng],Math.max(mapRef.getZoom(),16));
       } else locationMarker.setLatLng([lat,lng]);
-      locationMarker.bindPopup(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:#e6edf3">📍 You<br>±${Math.round(accuracy)}m</div>`);
+      locationMarker.bindPopup(`<div style="font-family:'DM Mono',monospace;font-size:11px;color:#e6edf3">📍 You ±${Math.round(accuracy)}m</div>`);
     },()=>{toast('Location unavailable');btn.classList.remove('active');locationWatchId=null;},{enableHighAccuracy:true,maximumAge:5000});
   }
 
@@ -369,10 +382,9 @@ const UI = (() => {
         geojson=toGeoJSON.kml(new DOMParser().parseFromString(kmlText,'text/xml'));
       }
     } catch(e){toast('Failed to read file');return;}
-
     const hasPoints=geojson.features?.some(f=>f.geometry?.type==='Point');
-    if(hasPoints){ _showImportLayerPicker(name,geojson); }
-    else { _loadAsOverlay(name,geojson); }
+    if(hasPoints) _showImportLayerPicker(name,geojson);
+    else _loadAsOverlay(name,geojson);
   }
 
   function _showImportLayerPicker(name,geojson) {
@@ -382,12 +394,10 @@ const UI = (() => {
     sel.value=getActiveLayerId(); modal._geojson=geojson; modal._name=name;
     modal.classList.add('open');
   }
-
   function confirmImportLayer() {
     const modal=document.getElementById('import-layer-modal');
     const layerId=document.getElementById('imp-layer-select').value;
-    const geojson=modal._geojson; const name=modal._name;
-    modal.classList.remove('open');
+    const geojson=modal._geojson; modal.classList.remove('open');
     Layers.pushUndo(Layers.getAllPoints());
     const user=Presence.getCurrentUser();
     const now=new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
@@ -401,9 +411,8 @@ const UI = (() => {
     Sync.savePoints(Layers.getAllPoints());
     toast(`${count} points added to "${Layers.getDef(layerId)?.name}"`);
     const hasShapes=geojson.features?.some(f=>f.geometry?.type!=='Point');
-    if(hasShapes) _loadAsOverlay(name,geojson);
+    if(hasShapes) _loadAsOverlay(modal._name||'import',geojson);
   }
-
   function closeImportLayer() { document.getElementById('import-layer-modal').classList.remove('open'); }
 
   function _loadAsOverlay(name,geojson) {
@@ -426,14 +435,12 @@ const UI = (() => {
     row.querySelector('.layer-toggle').addEventListener('click',e=>{e.stopPropagation();_toggleKmz(kmzId);});
     document.getElementById('kmz-layers-list').appendChild(row);
   }
-
-  function _toggleKmz(kmzId) {
+  function _toggleKmz(kmzId){
     const e=kmzLayers[kmzId]; const t=document.getElementById(`kmz-tog-${kmzId}`);
     if(mapRef.hasLayer(e.lyr)){mapRef.removeLayer(e.lyr);t.classList.remove('checked');t.textContent='';}
     else{mapRef.addLayer(e.lyr);t.classList.add('checked');t.textContent='✓';}
   }
-
-  function removeKmzLayer(kmzId,e) {
+  function removeKmzLayer(kmzId,e){
     e.stopPropagation(); mapRef.removeLayer(kmzLayers[kmzId].lyr); delete kmzLayers[kmzId];
     document.getElementById(`kmz-row-${kmzId}`).remove();
     if(!Object.keys(kmzLayers).length) document.getElementById('kmz-layers-section').style.display='none';
@@ -502,7 +509,7 @@ const UI = (() => {
   return {
     init, buildSidebar, rebuildLayerLists, setActiveLayer, getActiveLayerId,
     toggleLabels, toggleStreetLabels, toggleMyLocation, toggleSidebar,
-    setLayerOpacity,
+    setLayerOpacity, openStylePanel, applyStyle, _closeAllStylePanels,
     openAddLayer, closeAddLayer, updateAlbPreview, confirmAddLayer, removeCustomLayer,
     triggerKmzUpload, handleKmzUpload, removeKmzLayer,
     confirmImportLayer, closeImportLayer,
