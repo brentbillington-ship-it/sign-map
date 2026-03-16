@@ -675,7 +675,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     minZoom: CONFIG.MIN_ZOOM, maxZoom: CONFIG.MAX_ZOOM,
     zoomControl: true,
   });
-  map.getContainer().style.cursor = 'crosshair';
+  map.getContainer().style.cursor = 'grab';
 
   // Imperial-only scale
   L.control.scale({ imperial:true, metric:false, position:'bottomright' }).addTo(map);
@@ -765,7 +765,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     UI._selectLayer = function(id) { origSelect(id); updateToolbarLayer(); };
 
     Sync.startRefresh(data => {
-      Layers.loadFromSheets(data.points || {}, null);
+      Layers.loadFromSheets(data.points || {});
       Points.renderAll();
       if (data.annotations) Annotations.loadFromSheets(data.annotations);
       updateToolbarLayer();

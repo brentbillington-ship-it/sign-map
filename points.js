@@ -50,7 +50,7 @@ const Points = (() => {
     if (!val && !svMode) {
       // Restore identify when draw tool exits (unless place mode is on)
       if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
-      map.getContainer().style.cursor = placeMode ? 'crosshair' : 'default';
+      mapRef.getContainer().style.cursor = placeMode ? 'crosshair' : 'grab';
     }
   }
 
@@ -68,11 +68,11 @@ const Points = (() => {
     if (on) {
       // SV mode: disable parcel identify, set crosshair
       if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(false);
-      map.getContainer().style.cursor = 'crosshair';
+      mapRef.getContainer().style.cursor = 'crosshair';
     } else {
       // Restore: identify on if not in place mode
       if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
-      map.getContainer().style.cursor = placeMode ? 'crosshair' : 'default';
+      mapRef.getContainer().style.cursor = placeMode ? 'crosshair' : 'grab';
     }
   }
 
@@ -99,13 +99,14 @@ const Points = (() => {
     if (btn) btn.classList.remove('active');
     document.getElementById('map').classList.remove('place-mode');
     if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(true);
-    map.getContainer().style.cursor = 'default';
+    mapRef.getContainer().style.cursor = 'grab';
     // Hide mobile cancel bar
     const bar = document.getElementById('mobile-cancel-bar');
     if (bar) bar.classList.remove('show');
   }
 
   // Keep these for backward compat with other modules
+  function isPlaceMode()     { return placeMode; }
   function togglePlaceMode() { placeMode ? deactivateTool() : activateTool(); }
   function setPlaceMode(val) { val ? activateTool() : deactivateTool(); }
 
