@@ -21,15 +21,22 @@ const ParcelsLayer = (() => {
   function _isAddress(s) { return s && (/^\d/.test(s.trim()) || STREET_SUFFIXES.test(s)); }
 
   function _scrub(raw) {
-    const name  = (raw.name  || '').trim();   // land use type e.g. "VACANT LAND"
+    const name  = (raw.name  || '').trim();
     const owner = (raw.owner || '').trim();
     let addr1   = (raw.addr1 || '').trim();
     let addr2   = (raw.addr2 || '').trim();
-    // Only strip addr fields that are clearly names (all letters, no numbers, no suffix)
-    // Be conservative — if uncertain, keep the field
-    if (addr1 && !_isAddress(addr1) && /^[A-Z\s&,\.]+$/.test(addr1) && addr1.length > 3) addr1 = '';
-    if (addr2 && !_isAddress(addr2) && /^[A-Z\s&,\.]+$/.test(addr2) && addr2.length > 3) addr2 = '';
-    return { name, owner, addr1, addr2 };
+    const coowners = [];
+    if (addr1 && !_isAddress(addr1) && /^[A-Z\s&,\.]+$/.test(addr1) && addr1.length > 3) {
+      coowners.push(addr1); addr1 = '';
+    }
+    if (addr2 && !_isAddress(addr2) && /^[A-Z\s&,\.]+$/.test(addr2) && addr2.length > 3) {
+      coowners.push(addr2); addr2 = '';
+    }
+    let fullOwner = owner;
+    coowners.forEach(co => {
+      if (!owner.includes(co.trim())) fullOwner += (fullOwner ? ' ' : '') + co.trim();
+    });
+    return { name, owner: fullOwner, addr1, addr2 };
   }
 
   function init(map) {

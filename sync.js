@@ -6,7 +6,13 @@ const Sync = (() => {
 
   async function _get(params) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
-    await fetch(`${CONFIG.APPS_SCRIPT_URL}?${params}`, { redirect:'follow' });
+    const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?${params}`, { redirect:'follow' });
+    const data = await res.json().catch(() => ({}));
+    if (data && data.error) {
+      console.warn('GAS error:', data.error);
+      if (typeof UI !== 'undefined') UI.toast('⚠ Save error — check connection');
+    }
+    return data;
   }
 
   // ── LOAD ──────────────────────────────────────────────────────────────────
@@ -63,13 +69,18 @@ const Sync = (() => {
     }
   }
 
-  // ── ANNOTATIONS ───────────────────────────────────────────────────────────
+  // ── ANNOTATIONS — chunked to stay under GAS URL limit ────────────────────
   async function saveAnnotations(annotations) {
     if (!CONFIG.APPS_SCRIPT_URL) return;
-    try {
-      const payload = JSON.stringify({ action:'saveAnnotations', annotations });
-      await _get(`payload=${encodeURIComponent(payload)}`);
-    } catch(e) { console.warn('Annotation save failed:', e); }
+    const CHUNK = 10;
+    for (let i = 0; i < Math.max(1, Math.ceil(annotations.length / CHUNK)); i++) {
+      const chunk  = annotations.slice(i * CHUNK, (i + 1) * CHUNK);
+      const append = i > 0;
+      try {
+        const payload = JSON.stringify({ action:'saveAnnotations', annotations: chunk, append });
+        await _get(`payload=${encodeURIComponent(payload)}`);
+      } catch(e) { console.warn(`saveAnnotations chunk ${i} failed:`, e); }
+    }
   }
 
   // ── PRESENCE ──────────────────────────────────────────────────────────────

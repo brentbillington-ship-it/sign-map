@@ -27,10 +27,23 @@ const Layers = (() => {
   function undo() {
     if (!undoStack.length) return;
     const snapshot = JSON.parse(undoStack.pop());
-    Object.keys(LAYER_DEFS).forEach(id => { allPoints[id] = snapshot[id] || []; });
+    // Find what changed and delta-save only those points
+    Object.keys(LAYER_DEFS).forEach(id => {
+      const before = snapshot[id] || [];
+      const after  = allPoints[id] || [];
+      // Points removed by undo (were added after snapshot) — delete them
+      after.forEach(pt => {
+        if (!before.find(p => p.id === pt.id)) Sync.deletePoint(id, pt.id);
+      });
+      // Points restored or moved — update them
+      before.forEach(pt => {
+        const current = after.find(p => p.id === pt.id);
+        if (!current || current.lat !== pt.lat || current.lng !== pt.lng) Sync.updatePoint(id, pt);
+      });
+      allPoints[id] = before;
+    });
     renderAll(null, _lastMarkerClick);
     _updateUndoBtn();
-    Sync.savePoints(allPoints);
     if (typeof UI !== 'undefined') UI.toast('Undone');
   }
 
@@ -126,8 +139,34 @@ const Layers = (() => {
     _lastMarkerClick = onMarkerClick || _lastMarkerClick;
     // Load all data from sheets first
     Object.keys(LAYER_DEFS).forEach(id => { allPoints[id] = data[id] || []; });
-    // Then merge any missing seeds on top
-    applySeedIfEmpty(data);
+    // Auto-dedup: remove points with identical lat/lng within same layer
+    Object.keys(LAYER_DEFS).forEach(id => {
+      const pts = allPoints[id] || [];
+      const seen = new Map();
+      const toDelete = [];
+      pts.forEach(pt => {
+        const key = `${parseFloat(pt.lat).toFixed(6)},${parseFloat(pt.lng).toFixed(6)}`;
+        if (seen.has(key)) {
+          // Keep the one with more content (has notes or longer name)
+          const existing = seen.get(key);
+          const existingScore = (existing.notes||'').length + (existing.name||'').length;
+          const newScore = (pt.notes||'').length + (pt.name||'').length;
+          if (newScore > existingScore) {
+            toDelete.push(existing.id);
+            seen.set(key, pt);
+          } else {
+            toDelete.push(pt.id);
+          }
+        } else {
+          seen.set(key, pt);
+        }
+      });
+      if (toDelete.length) {
+        allPoints[id] = pts.filter(p => !toDelete.includes(p.id));
+        toDelete.forEach(ptId => Sync.deletePoint(id, ptId));
+        console.log(`Auto-dedup: removed ${toDelete.length} duplicate(s) from ${id}`);
+      }
+    });
     renderAll(null, _lastMarkerClick);
     _updateAllCounts();
   }
