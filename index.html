@@ -685,7 +685,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   aerialPane.style.zIndex = 200;
   const aerialLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { attribution:'Imagery © Esri', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:22, pane:'aerialPane' }
+    { attribution:'Imagery © Esri', maxZoom:21, maxNativeZoom:19, pane:'aerialPane' }
   ).addTo(map);
 
   // Brightness control - only affects the aerial pane, not the UI
@@ -699,7 +699,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 
   const streetLabels = L.tileLayer(
     'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
-    { subdomains:'abcd', maxZoom:CONFIG.MAX_ZOOM, maxNativeZoom:22, opacity:0.9, pane:'labelsPane' }
+    { subdomains:'abcd', maxZoom:21, maxNativeZoom:19, opacity:0.9, pane:'labelsPane' }
   ).addTo(map);
 
   // ── SYNC STATUS INDICATOR ──
@@ -747,6 +747,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     setSyncStatus('saving');
     setTimeout(() => setSyncStatus('saved'), 1500);
   });
+  Points.renderAll(); // register _onMarkerClick as _lastMarkerClick in Layers
   Annotations.init(map, anns => {
     setSyncStatus('saving');
     Sync.saveAnnotations(anns);
