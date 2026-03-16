@@ -104,22 +104,30 @@ const Layers = (() => {
 
   // ── SEED DATA ────────────────────────────────────────────────────────────────
   function applySeedIfEmpty(data) {
-    const hasAny = Object.values(data||{}).some(arr => arr && arr.length > 0);
-    if (hasAny || !CONFIG.SEED_POINTS) return false;
+    if (!CONFIG.SEED_POINTS) return false;
+    let seeded = false;
     Object.entries(CONFIG.SEED_POINTS).forEach(([layerId, pts]) => {
-      allPoints[layerId] = pts.map(p => ({...p, addedBy:'Brent', editedBy:'', editedAt:''}));
-      // Save each seed point individually (delta saves — no URL limit issues)
-      allPoints[layerId].forEach(pt => Sync.addPoint(layerId, pt));
+      const existing = data[layerId] || [];
+      const existingIds = new Set(existing.map(p => String(p.id)));
+      const missing = pts.filter(p => !existingIds.has(String(p.id)));
+      if (!missing.length) return;
+      missing.forEach(p => {
+        const pt = {...p, addedBy:'Brent', editedBy:'', editedAt:''};
+        if (!allPoints[layerId]) allPoints[layerId] = [];
+        allPoints[layerId].push(pt);
+        Sync.addPoint(layerId, pt);
+      });
+      seeded = true;
     });
-    return true;
+    return seeded;
   }
 
   function loadFromSheets(data, onMarkerClick) {
     _lastMarkerClick = onMarkerClick || _lastMarkerClick;
-    const seeded = applySeedIfEmpty(data);
-    if (!seeded) {
-      Object.keys(LAYER_DEFS).forEach(id => { allPoints[id] = data[id] || []; });
-    }
+    // Load all data from sheets first
+    Object.keys(LAYER_DEFS).forEach(id => { allPoints[id] = data[id] || []; });
+    // Then merge any missing seeds on top
+    applySeedIfEmpty(data);
     renderAll(null, _lastMarkerClick);
     _updateAllCounts();
   }

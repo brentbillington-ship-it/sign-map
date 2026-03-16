@@ -66,11 +66,9 @@ const Points = (() => {
     const btn = document.getElementById('sv-btn');
     if (btn) btn.classList.toggle('active', on);
     if (on) {
-      // SV mode: disable parcel identify, set crosshair
       if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(false);
       mapRef.getContainer().style.cursor = 'crosshair';
     } else {
-      // Restore: identify on if not in place mode
       if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
       mapRef.getContainer().style.cursor = placeMode ? 'crosshair' : 'grab';
     }
@@ -100,7 +98,6 @@ const Points = (() => {
     document.getElementById('map').classList.remove('place-mode');
     if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(true);
     mapRef.getContainer().style.cursor = 'grab';
-    // Hide mobile cancel bar
     const bar = document.getElementById('mobile-cancel-bar');
     if (bar) bar.classList.remove('show');
   }
@@ -183,15 +180,31 @@ const Points = (() => {
     const def = Layers.getDef(layerId);
     const div = document.createElement('div');
     div.className = 'popup-form';
+
+    // Build layer options HTML for custom dropdown
+    const layerOpts = Layers.getOrder().filter(id => Layers.getDef(id)).map(id => {
+      const d = Layers.getDef(id);
+      const br = d.shape === 'circle' ? '50%' : '2px';
+      return `<div class="ef-dd-opt${d.id === layerId ? ' selected' : ''}" data-id="${d.id}" style="display:flex;align-items:center;gap:7px;padding:5px 8px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--border);">
+        <span style="width:11px;height:11px;border-radius:${br};background:${d.color};border:1.5px solid rgba(255,255,255,0.2);flex-shrink:0;display:inline-block;"></span>
+        <span>${_esc(d.name)}</span>
+      </div>`;
+    }).join('');
+
     div.innerHTML = `
       <h3>${_swatchHtml(def,13,'ef-swatch')} ${isNew?'New Point':'Edit Point'}</h3>
       <label>Layer</label>
-      <select id="ef-layer">
-        ${Layers.getOrder().filter(id=>Layers.getDef(id)).map(id=>{
-          const d=Layers.getDef(id);
-          return `<option value="${d.id}"${d.id===layerId?' selected':''}>${_esc(d.name)}</option>`;
-        }).join('')}
-      </select>
+      <div class="ef-layer-wrap" style="position:relative;margin-bottom:6px;">
+        <div id="ef-layer-btn" style="display:flex;align-items:center;gap:7px;padding:5px 7px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;font-size:11px;">
+          <span id="ef-layer-swatch" style="width:11px;height:11px;border-radius:${def&&def.shape==='circle'?'50%':'2px'};background:${def?def.color:'#888'};border:1.5px solid rgba(255,255,255,0.2);flex-shrink:0;display:inline-block;"></span>
+          <span id="ef-layer-label" style="flex:1">${def?_esc(def.name):'Select layer'}</span>
+          <span style="color:var(--muted2);font-size:9px;">▾</span>
+        </div>
+        <div id="ef-layer-list" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:9999;background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);max-height:180px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.5);">
+          ${layerOpts}
+        </div>
+        <input type="hidden" id="ef-layer" value="${layerId}"/>
+      </div>
       <label>Name / Label</label>
       <input id="ef-name" type="text" value="${_esc(pt.name||'')}" placeholder="Address or label"/>
       <label>Notes</label>
@@ -202,11 +215,27 @@ const Points = (() => {
         <button class="btn-cancel">Cancel</button>
       </div>
     `;
-    div.querySelector('#ef-layer').addEventListener('change', function() {
-      const d = Layers.getDef(this.value);
-      const sw = div.querySelector('#ef-swatch');
-      if (d && sw) { sw.style.background=d.color; sw.style.borderRadius=d.shape==='circle'?'50%':'2px'; }
+
+    // Wire up custom dropdown
+    const btn  = div.querySelector('#ef-layer-btn');
+    const list = div.querySelector('#ef-layer-list');
+    const hiddenInput = div.querySelector('#ef-layer');
+    btn.addEventListener('click', e => { e.stopPropagation(); list.style.display = list.style.display === 'none' ? 'block' : 'none'; });
+    div.querySelectorAll('.ef-dd-opt').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const id = opt.dataset.id;
+        const d  = Layers.getDef(id);
+        hiddenInput.value = id;
+        div.querySelector('#ef-layer-label').textContent = d.name;
+        div.querySelector('#ef-layer-swatch').style.background = d.color;
+        div.querySelector('#ef-layer-swatch').style.borderRadius = d.shape === 'circle' ? '50%' : '2px';
+        const sw = div.querySelector('#ef-swatch');
+        if (sw) { sw.style.background = d.color; sw.style.borderRadius = d.shape === 'circle' ? '50%' : '2px'; }
+        list.style.display = 'none';
+      });
     });
+    document.addEventListener('click', () => { list.style.display = 'none'; }, { once: true });
+
     return div;
   }
 
