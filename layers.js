@@ -255,7 +255,7 @@ const Layers = (() => {
       const isMassSel = isSelected(layerId, pt.id);
       const marker = L.marker([pt.lat, pt.lng], {
         icon: makeIcon(layerId, isSel || isMassSel),
-        draggable: false, // We control dragging manually via long-press
+        draggable: true,
         riseOnHover: isMobile,
       });
       marker._ptLayerId = layerId;
@@ -265,21 +265,27 @@ const Layers = (() => {
       let _pressTimer = null;
       let _dragEnabled = false;
 
+      marker.on('add', () => {
+        // Disable drag immediately after marker is added to map
+        if (marker.dragging) marker.dragging.disable();
+      });
+
       const _startPress = () => {
         _dragEnabled = false;
         _pressTimer = setTimeout(() => {
           _dragEnabled = true;
-          marker.dragging.enable();
-          marker.getElement() && (marker.getElement().style.cursor = 'grabbing');
+          if (marker.dragging) marker.dragging.enable();
+          const el = marker.getElement();
+          if (el) el.style.cursor = 'grabbing';
         }, 400);
       };
       const _cancelPress = () => {
         clearTimeout(_pressTimer);
-        if (!_dragEnabled) marker.dragging && marker.dragging.disable();
+        if (!_dragEnabled && marker.dragging) marker.dragging.disable();
       };
 
       marker.on('mousedown touchstart', _startPress);
-      marker.on('mouseup touchend',   _cancelPress);
+      marker.on('mouseup touchend', _cancelPress);
 
       marker.on('click', e => {
         L.DomEvent.stopPropagation(e);
@@ -287,7 +293,7 @@ const Layers = (() => {
           toggleSelect(layerId, pt.id);
           return;
         }
-        if (_dragEnabled) return; // ignore click that follows a drag
+        if (_dragEnabled) return;
         clickHandler(layerId, pt, marker);
       });
 
@@ -298,9 +304,9 @@ const Layers = (() => {
 
       marker.on('dragend', e => {
         _dragEnabled = false;
-        marker.dragging && marker.dragging.disable();
-        marker.getElement() && (marker.getElement().style.cursor = '');
-        // Set flag so map click handler skips deselect for this event cycle
+        if (marker.dragging) marker.dragging.disable();
+        const el = marker.getElement();
+        if (el) el.style.cursor = '';
         _justDragged = true;
         setTimeout(() => { _justDragged = false; }, 300);
 
