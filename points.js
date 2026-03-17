@@ -20,11 +20,8 @@ const Points = (() => {
       UI.hideCtxMenu();
       if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
       if (!placeMode) {
-        // Skip deselect if a marker was just clicked (two guards for reliability)
-        if (e.originalEvent && e.originalEvent.target && e.originalEvent.target.closest && e.originalEvent.target.closest('.chaka-marker')) return;
-        if (Layers.markerClickedAt && (Date.now() - Layers.markerClickedAt) < 50) return;
-        if (Layers.justDragged()) return;
-        if (selectedPoint) { deselect(); mapRef.closePopup(); }
+        // Don't deselect here — popupclose event handles it.
+        // This prevents race conditions with marker clicks.
         return;
       }
       if (drawToolActive) return;
@@ -34,8 +31,6 @@ const Points = (() => {
 
     map.on('contextmenu', e => {
       if (placeMode) { deactivateTool(); return; }
-      // Deselect on right-click
-      if (selectedPoint) { deselect(); mapRef.closePopup(); }
       const layerId = UI.getActiveLayerId();
       const def = Layers.getDef(layerId);
       UI.showCtxMenu(e.originalEvent, {
@@ -148,10 +143,6 @@ const Points = (() => {
     const div = document.createElement('div');
     div.className = 'point-popup';
 
-    // Photo thumbnail (lazy-loaded)
-    let photoHtml = '';
-    const hasPhotoLocal = pt.photo && pt.photo.length > 20;
-
     div.innerHTML = `
       <h3>${_swatchHtml(def,12)}${_esc(pt.name||'Unnamed')}</h3>
       <div class="meta">${_esc(def.name)}</div>
@@ -164,16 +155,24 @@ const Points = (() => {
         <button class="sv-popup-btn" onclick="Points.streetViewAt(${pt.lat},${pt.lng})">📷 Street View</button>
       </div>
     `;
-    marker.bindPopup(div, { maxWidth:300 }).openPopup();
-    marker.on('popupclose', deselect);
 
-    // Lazy-load photo
+    // Open popup on the map at the point's position (NOT bound to marker,
+    // because select() re-renders the layer and destroys the original marker)
+    L.popup({ maxWidth:300 })
+      .setLatLng([pt.lat, pt.lng])
+      .setContent(div)
+      .openOn(mapRef);
+
+    mapRef.once('popupclose', () => deselect());
+
+    // Lazy-load photo (guard in case Sync.loadPhoto not yet deployed)
+    const hasPhotoLocal = pt.photo && pt.photo.length > 20;
     if (hasPhotoLocal) {
       _showPhotoInPopup(div, pt.photo);
-    } else {
+    } else if (typeof Sync !== 'undefined' && Sync.loadPhoto) {
       Sync.loadPhoto(pt.id).then(photoData => {
         if (photoData) _showPhotoInPopup(div, photoData);
-      });
+      }).catch(() => {});
     }
   }
 
