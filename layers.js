@@ -14,6 +14,10 @@ const Layers = (() => {
   let customCounter = 0;
   let showLabels    = CONFIG.SHOW_LABELS;
 
+  // ── DRAG STATE (module-level so justDragged() is accessible via export) ──────
+  let _justDragged  = false;
+  function justDragged() { return _justDragged; }
+
   // ── UNDO ────────────────────────────────────────────────────────────────────
   const undoStack = [];
   const MAX_UNDO  = 10;
@@ -245,10 +249,6 @@ const Layers = (() => {
     labelGroups[layerId].clearLayers();
 
     const isMobile = window.matchMedia('(max-width:768px)').matches;
-
-  // ── DRAG STATE ────────────────────────────────────────────────────────────────
-  let _justDragged = false;
-  function justDragged() { return _justDragged; }
 
     (allPoints[layerId]||[]).forEach(pt => {
       const isSel = selectedPoint && selectedPoint.layerId===layerId && selectedPoint.ptId===pt.id;
