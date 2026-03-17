@@ -215,8 +215,6 @@ const Layers = (() => {
       background:${bg};
       border-radius:${isSquare?'2px':'50%'};
       border:1.5px solid #fff;
-      -webkit-print-color-adjust:exact;
-      print-color-adjust:exact;
       ${ring}
     "></div>`;
     return L.divIcon({ html, className:'', iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2-4] });

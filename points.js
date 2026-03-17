@@ -224,7 +224,7 @@ const Points = (() => {
       const d = Layers.getDef(id);
       const br = d.shape === 'circle' ? '50%' : '2px';
       return `<div class="ef-dd-opt${d.id === layerId ? ' selected' : ''}" data-id="${d.id}" style="display:flex;align-items:center;gap:7px;padding:5px 8px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--border);">
-        <span style="width:11px;height:11px;border-radius:${br};background:${d.color};border:1.5px solid rgba(255,255,255,0.2);flex-shrink:0;display:inline-block;"></span>
+        <span style="width:11px;height:11px;border-radius:${br};background:${d.color};border:1.5px solid #fff;flex-shrink:0;display:inline-block;"></span>
         <span>${_esc(d.name)}</span>
       </div>`;
     }).join('');
@@ -234,7 +234,7 @@ const Points = (() => {
       <label>Layer</label>
       <div class="ef-layer-wrap" style="position:relative;margin-bottom:6px;">
         <div id="ef-layer-btn" style="display:flex;align-items:center;gap:7px;padding:5px 7px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;font-size:11px;">
-          <span id="ef-layer-swatch" style="width:11px;height:11px;border-radius:${def&&def.shape==='circle'?'50%':'2px'};background:${def?def.color:'#888'};border:1.5px solid rgba(255,255,255,0.2);flex-shrink:0;display:inline-block;"></span>
+          <span id="ef-layer-swatch" style="width:11px;height:11px;border-radius:${def&&def.shape==='circle'?'50%':'2px'};background:${def?def.color:'#888'};border:1.5px solid #fff;flex-shrink:0;display:inline-block;"></span>
           <span id="ef-layer-label" style="flex:1">${def?_esc(def.name):'Select layer'}</span>
           <span style="color:var(--muted2);font-size:9px;">▾</span>
         </div>
@@ -249,7 +249,7 @@ const Points = (() => {
       <textarea id="ef-notes" placeholder="Optional notes…">${_esc(pt.notes||'')}</textarea>
       <label>Photo</label>
       <div class="ef-photo-row">
-        <input type="file" id="ef-photo-input" accept="image/*" capture="environment" style="display:none" onchange="Points._handlePhotoSelect(this)"/>
+        <input type="file" id="ef-photo-input" accept="image/*" style="display:none" onchange="Points._handlePhotoSelect(this)"/>
         <button type="button" class="btn-photo-upload" onclick="document.getElementById('ef-photo-input').click()">📷 ${pt.photo ? 'Replace' : 'Add'} Photo</button>
         <span id="ef-photo-status" class="ef-photo-status">${pt.photo ? '✓ Has photo' : ''}</span>
         ${pt.photo ? '<button type="button" class="btn-photo-remove" onclick="Points._removePhoto()">✕</button>' : ''}
@@ -378,7 +378,7 @@ const Points = (() => {
 
   function _swatchHtml(def, size, id='') {
     if (!def) return '';
-    return `<span ${id?`id="${id}"`:''} style="display:inline-block;width:${size}px;height:${size}px;background:${def.color};border-radius:${def.shape==='circle'?'50%':'2px'};border:1.5px solid rgba(255,255,255,0.22);flex-shrink:0;vertical-align:middle;margin-right:5px;"></span>`;
+    return `<span ${id?`id="${id}"`:''} style="display:inline-block;width:${size}px;height:${size}px;background:${def.color};border-radius:${def.shape==='circle'?'50%':'2px'};border:1.5px solid #fff;flex-shrink:0;vertical-align:middle;margin-right:5px;"></span>`;
   }
 
   // ── PHOTO HANDLING ─────────────────────────────────────────────────────────

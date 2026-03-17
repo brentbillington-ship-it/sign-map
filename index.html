@@ -145,7 +145,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   cursor:pointer;display:flex;align-items:center;gap:6px;text-align:left;
 }
 #layer-dropdown-btn:hover{border-color:var(--accent);}
-.dd-swatch{width:11px;height:11px;flex-shrink:0;border:1.5px solid rgba(255,255,255,0.2);}
+.dd-swatch{width:11px;height:11px;flex-shrink:0;border:1.5px solid #fff;}
 .dd-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dd-arrow{color:var(--muted2);font-size:9px;flex-shrink:0;}
 .dd-badge{background:var(--teal);color:#fff;font-size:9px;padding:1px 5px;border-radius:10px;flex-shrink:0;min-width:16px;text-align:center;}
@@ -177,7 +177,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .layer-row.drag-over{border-top:2px solid var(--accent);}
 .drag-handle{color:var(--muted2);font-size:13px;cursor:grab;flex-shrink:0;line-height:1;padding:0 2px;}
 .drag-handle:active{cursor:grabbing;}
-.layer-icon{width:12px;height:12px;flex-shrink:0;border-radius:2px;border:1.5px solid rgba(255,255,255,0.14);}
+.layer-icon{width:12px;height:12px;flex-shrink:0;border-radius:2px;border:1.5px solid #fff;}
 .layer-icon.circle{border-radius:50%;}
 .layer-name{font-size:10px;flex:1;color:var(--text);}
 .layer-toggle{width:13px;height:13px;border:1px solid var(--border2);border-radius:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;}
@@ -235,9 +235,9 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 
 /* ── MARKER COLOR FIX (mobile Safari/Android color accuracy) ── */
 .chaka-marker {
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-  color-adjust: exact;
+  /* Force clean GPU compositing on iOS — prevents color mudding */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
 }
 
@@ -343,7 +343,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .modal-btn-cancel{padding:6px 11px;background:transparent;color:var(--muted);border:1px solid var(--border2);border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;}
 .alb-color-row{display:flex;align-items:center;gap:8px;}
 #alb-color{width:40px;height:28px;padding:2px;border-radius:3px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;}
-#alb-preview{width:18px;height:18px;border-radius:2px;border:1.5px solid rgba(255,255,255,0.15);flex-shrink:0;background:#e05252;}
+#alb-preview{width:18px;height:18px;border-radius:2px;border:1.5px solid #fff;flex-shrink:0;background:#e05252;}
 
 /* ── LOGIN ── */
 #login-overlay{position:fixed;inset:0;z-index:9999;background:rgba(13,17,23,0.97);display:flex;align-items:center;justify-content:center;}
@@ -393,7 +393,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .pt-list-row.pt-selected{background:rgba(104,148,158,0.15);}
 .pt-list-empty{padding:6px 22px;font-size:10px;color:var(--muted2);}
 .pt-cb{width:12px;height:12px;flex-shrink:0;accent-color:var(--accent);cursor:pointer;}
-.pt-swatch{width:9px;height:9px;flex-shrink:0;border:1px solid rgba(255,255,255,0.2);}
+.pt-swatch{width:9px;height:9px;flex-shrink:0;border:1px solid #fff;}
 .pt-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pt-edit-btn{width:16px;height:16px;border:none;background:transparent;color:var(--muted2);font-size:11px;cursor:pointer;flex-shrink:0;opacity:0;}
 .pt-list-row:hover .pt-edit-btn{opacity:1;}
@@ -804,8 +804,8 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   labelsPane.style.pointerEvents = 'none';
 
   const streetLabels = L.tileLayer(
-    'https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
-    { maxZoom:21, maxNativeZoom:19, opacity:0.9, pane:'labelsPane' }
+    'https://basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+    { maxZoom:21, maxNativeZoom:19, opacity:1, pane:'labelsPane' }
   ).addTo(map);
 
   // ── SYNC STATUS INDICATOR ──
@@ -877,7 +877,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
       if (el && def) {
         const br  = def.shape==='circle'?'50%':'2px';
         const cnt = (Layers.getPoints(id)||[]).length;
-        el.innerHTML = `<span style="display:inline-block;width:10px;height:10px;background:${def.color};border-radius:${br};border:1.5px solid rgba(255,255,255,0.3);flex-shrink:0;"></span>&nbsp;${def.name}&nbsp;<span style="color:var(--muted2);font-size:10px">(${cnt})</span>`;
+        el.innerHTML = `<span style="display:inline-block;width:10px;height:10px;background:${def.color};border-radius:${br};border:1.5px solid #fff;flex-shrink:0;"></span>&nbsp;${def.name}&nbsp;<span style="color:var(--muted2);font-size:10px">(${cnt})</span>`;
       }
     }
 
