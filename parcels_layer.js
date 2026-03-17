@@ -53,9 +53,18 @@ const ParcelsLayer = (() => {
       pane: 'parcelPane',
       style: () => ({...STYLE_DEFAULT}),
       onEachFeature: (feature, layer) => {
+        let _hovered = false;
         layer.on({
-          mouseover: e => { if (!identifyActive || e.target===selectedLayer) return; e.target.setStyle(STYLE_HOVER); },
-          mouseout:  e => { if (!identifyActive || e.target===selectedLayer) return; geojsonLayer.resetStyle(e.target); },
+          mouseover: e => {
+            if (!identifyActive || e.target===selectedLayer || _hovered) return;
+            _hovered = true;
+            e.target.setStyle(STYLE_HOVER);
+          },
+          mouseout:  e => {
+            if (!identifyActive || e.target===selectedLayer) return;
+            _hovered = false;
+            geojsonLayer.resetStyle(e.target);
+          },
           click:     e => { if (!identifyActive) return; _select(feature, layer, e); },
         });
       },
@@ -69,10 +78,8 @@ const ParcelsLayer = (() => {
   function setIdentifyMode(active) {
     identifyActive = active;
     if (!geojsonLayer) return;
-    // Use 'visibleStroke' so only the yellow parcel lines are hittable,
-    // not the fill area — clicks in the middle of a parcel pass through to markers
     geojsonLayer.eachLayer(l => {
-      if (l._path) l._path.style.pointerEvents = active ? 'visibleStroke' : 'none';
+      if (l._path) l._path.style.pointerEvents = active ? 'visiblePainted' : 'none';
     });
     if (!active) _deselect();
   }
