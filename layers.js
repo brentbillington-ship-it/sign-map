@@ -246,37 +246,70 @@ const Layers = (() => {
 
     const isMobile = window.matchMedia('(max-width:768px)').matches;
 
+  // ── DRAG STATE ────────────────────────────────────────────────────────────────
+  let _justDragged = false;
+  function justDragged() { return _justDragged; }
+
     (allPoints[layerId]||[]).forEach(pt => {
       const isSel = selectedPoint && selectedPoint.layerId===layerId && selectedPoint.ptId===pt.id;
       const isMassSel = isSelected(layerId, pt.id);
       const marker = L.marker([pt.lat, pt.lng], {
         icon: makeIcon(layerId, isSel || isMassSel),
-        draggable: true,
-        // Larger tap target on mobile via riseOnHover
+        draggable: false, // We control dragging manually via long-press
         riseOnHover: isMobile,
       });
       marker._ptLayerId = layerId;
       marker._ptId = pt.id;
 
+      // ── LONG-PRESS TO DRAG ──────────────────────────────────────────────────
+      let _pressTimer = null;
+      let _dragEnabled = false;
+
+      const _startPress = () => {
+        _dragEnabled = false;
+        _pressTimer = setTimeout(() => {
+          _dragEnabled = true;
+          marker.dragging.enable();
+          marker.getElement() && (marker.getElement().style.cursor = 'grabbing');
+        }, 400);
+      };
+      const _cancelPress = () => {
+        clearTimeout(_pressTimer);
+        if (!_dragEnabled) marker.dragging && marker.dragging.disable();
+      };
+
+      marker.on('mousedown touchstart', _startPress);
+      marker.on('mouseup touchend',   _cancelPress);
+
       marker.on('click', e => {
         L.DomEvent.stopPropagation(e);
-        // Shift or Ctrl = toggle selection for mass delete
         if (e.originalEvent && (e.originalEvent.shiftKey || e.originalEvent.ctrlKey || e.originalEvent.metaKey)) {
           toggleSelect(layerId, pt.id);
           return;
         }
+        if (_dragEnabled) return; // ignore click that follows a drag
         clickHandler(layerId, pt, marker);
       });
 
-      marker.on('dragstart', () => pushUndo(_snapshot()));
+      marker.on('dragstart', () => {
+        clearTimeout(_pressTimer);
+        pushUndo(_snapshot());
+      });
+
       marker.on('dragend', e => {
+        _dragEnabled = false;
+        marker.dragging && marker.dragging.disable();
+        marker.getElement() && (marker.getElement().style.cursor = '');
+        // Set flag so map click handler skips deselect for this event cycle
+        _justDragged = true;
+        setTimeout(() => { _justDragged = false; }, 300);
+
         const pos = e.target.getLatLng();
         const idx = (allPoints[layerId]||[]).findIndex(p => p.id === pt.id);
         if (idx < 0) return;
         const origLat = allPoints[layerId][idx].lat;
         const origLng = allPoints[layerId][idx].lng;
         if (!confirm('Move point to new location?')) {
-          // Revert marker to original position
           marker.setLatLng([origLat, origLng]);
           return;
         }
@@ -399,5 +432,6 @@ const Layers = (() => {
     reorderLayer, pushUndo, undo,
     checkDuplicate, updateLayerStyle, _updateAllCounts,
     toggleSelect, isSelected, clearSelection, getSelected, massDelete,
+    justDragged,
   };
 })();

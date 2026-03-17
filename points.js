@@ -19,7 +19,8 @@ const Points = (() => {
       UI.hideCtxMenu();
       if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
       if (!placeMode) {
-        // Deselect any selected point when clicking empty map
+        // Skip deselect if a marker drag just ended (drag fires a click after dragend)
+        if (Layers.justDragged()) return;
         if (selectedPoint) { deselect(); mapRef.closePopup(); }
         return;
       }
