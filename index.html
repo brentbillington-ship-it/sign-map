@@ -804,8 +804,8 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   labelsPane.style.pointerEvents = 'none';
 
   const streetLabels = L.tileLayer(
-    'https://{s}.basemaps.cartocdn.com/dark_matter_only_labels/{z}/{x}/{y}{r}.png',
-    { subdomains:'abcd', maxZoom:21, maxNativeZoom:19, opacity:0.9, pane:'labelsPane' }
+    'https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+    { maxZoom:21, maxNativeZoom:19, opacity:0.9, pane:'labelsPane' }
   ).addTo(map);
 
   // ── SYNC STATUS INDICATOR ──
