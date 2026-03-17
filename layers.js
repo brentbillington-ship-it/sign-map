@@ -178,18 +178,59 @@ const Layers = (() => {
     const isSquare = def.shape === 'square';
     const s = isSquare ? 16 : 10;
     const op = opacityMap[layerId] ?? 1;
+    // Convert hex+opacity to rgba so iOS Safari renders colors correctly
+    // (applying opacity to the element causes Safari to reinterpret colors)
+    const hex = def.color.replace('#','');
+    const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+    const bg = op < 1 ? `rgba(${r},${g},${b},${op})` : def.color;
     const ring = selected
       ? `box-shadow:0 0 0 2px #fff,0 2px 8px rgba(0,0,0,0.7);`
       : `box-shadow:0 1px 5px rgba(0,0,0,0.5);`;
     const html = `<div class="chaka-marker" style="
       width:${s}px;height:${s}px;
-      background:${def.color};
+      background:${bg};
       border-radius:${isSquare?'2px':'50%'};
       border:2px solid rgba(255,255,255,0.35);
-      opacity:${op};
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
       ${ring}
     "></div>`;
     return L.divIcon({ html, className:'', iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2-4] });
+  }
+
+  // ── SELECTION STATE (for mass delete) ────────────────────────────────────────
+  const selectedPts = new Set(); // "layerId::ptId"
+  function _selKey(layerId, ptId) { return `${layerId}::${ptId}`; }
+  function toggleSelect(layerId, ptId) {
+    const k = _selKey(layerId, ptId);
+    if (selectedPts.has(k)) selectedPts.delete(k); else selectedPts.add(k);
+    _updateMassDeleteBar();
+    renderLayer(layerId, null, _lastMarkerClick);
+  }
+  function isSelected(layerId, ptId) { return selectedPts.has(_selKey(layerId, ptId)); }
+  function clearSelection() { selectedPts.clear(); _updateMassDeleteBar(); }
+  function getSelected() { return Array.from(selectedPts).map(k => { const [l,p]=k.split('::'); return {layerId:l,ptId:p}; }); }
+  function _updateMassDeleteBar() {
+    const bar = document.getElementById('mass-delete-bar');
+    if (!bar) return;
+    const n = selectedPts.size;
+    bar.style.display = n > 0 ? 'flex' : 'none';
+    const lbl = bar.querySelector('#mass-delete-label');
+    if (lbl) lbl.textContent = `${n} point${n!==1?'s':''} selected`;
+  }
+  function massDelete() {
+    const sel = getSelected();
+    if (!sel.length) return;
+    if (!confirm(`Delete ${sel.length} selected point${sel.length!==1?'s':''}? This cannot be undone.`)) return;
+    pushUndo(_snapshot());
+    sel.forEach(({layerId, ptId}) => {
+      removePoint(layerId, ptId);
+      Sync.deletePoint(layerId, ptId);
+    });
+    selectedPts.clear();
+    _updateMassDeleteBar();
+    renderAll(null, _lastMarkerClick);
+    if (typeof UI !== 'undefined') { UI.toast(`${sel.length} points deleted`); UI.rebuildLayerLists(); }
   }
 
   // ── RENDER ────────────────────────────────────────────────────────────────────
@@ -203,25 +244,47 @@ const Layers = (() => {
     leafletGroups[layerId].clearLayers();
     labelGroups[layerId].clearLayers();
 
+    const isMobile = window.matchMedia('(max-width:768px)').matches;
+
     (allPoints[layerId]||[]).forEach(pt => {
       const isSel = selectedPoint && selectedPoint.layerId===layerId && selectedPoint.ptId===pt.id;
-      const marker = L.marker([pt.lat, pt.lng], { icon: makeIcon(layerId, isSel), draggable: true });
+      const isMassSel = isSelected(layerId, pt.id);
+      const marker = L.marker([pt.lat, pt.lng], {
+        icon: makeIcon(layerId, isSel || isMassSel),
+        draggable: true,
+        // Larger tap target on mobile via riseOnHover
+        riseOnHover: isMobile,
+      });
       marker._ptLayerId = layerId;
       marker._ptId = pt.id;
 
-      marker.on('click', e => { L.DomEvent.stopPropagation(e); clickHandler(layerId, pt, marker); });
+      marker.on('click', e => {
+        L.DomEvent.stopPropagation(e);
+        // Shift or Ctrl = toggle selection for mass delete
+        if (e.originalEvent && (e.originalEvent.shiftKey || e.originalEvent.ctrlKey || e.originalEvent.metaKey)) {
+          toggleSelect(layerId, pt.id);
+          return;
+        }
+        clickHandler(layerId, pt, marker);
+      });
+
       marker.on('dragstart', () => pushUndo(_snapshot()));
       marker.on('dragend', e => {
         const pos = e.target.getLatLng();
         const idx = (allPoints[layerId]||[]).findIndex(p => p.id === pt.id);
-        if (idx >= 0) {
-          allPoints[layerId][idx].lat = pos.lat;
-          allPoints[layerId][idx].lng = pos.lng;
-          allPoints[layerId][idx].editedBy = typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '';
-          allPoints[layerId][idx].editedAt = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
-          // Delta save — just the moved point
-          Sync.updatePoint(layerId, allPoints[layerId][idx]);
+        if (idx < 0) return;
+        const origLat = allPoints[layerId][idx].lat;
+        const origLng = allPoints[layerId][idx].lng;
+        if (!confirm('Move point to new location?')) {
+          // Revert marker to original position
+          marker.setLatLng([origLat, origLng]);
+          return;
         }
+        allPoints[layerId][idx].lat = pos.lat;
+        allPoints[layerId][idx].lng = pos.lng;
+        allPoints[layerId][idx].editedBy = typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '';
+        allPoints[layerId][idx].editedAt = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
+        Sync.updatePoint(layerId, allPoints[layerId][idx]);
         if (typeof UI !== 'undefined') UI.toast('Position updated');
       });
 
@@ -232,7 +295,7 @@ const Layers = (() => {
         const shortName = pt.name.split('—')[0].trim().split(' ').slice(0,4).join(' ');
         const lbl = L.marker([pt.lat, pt.lng], {
           icon: L.divIcon({
-            html: `<div class="map-label">${_esc(shortName)}</div>`,
+            html: `<div class="map-label" style="writing-mode:horizontal-tb!important">${_esc(shortName)}</div>`,
             className: '', iconAnchor: [-6, 6],
           }),
           interactive: false, zIndexOffset: -100,
@@ -335,5 +398,6 @@ const Layers = (() => {
     saveActiveLayer, getActiveLayer,
     reorderLayer, pushUndo, undo,
     checkDuplicate, updateLayerStyle, _updateAllCounts,
+    toggleSelect, isSelected, clearSelection, getSelected, massDelete,
   };
 })();

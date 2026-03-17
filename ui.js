@@ -215,12 +215,13 @@ const UI = (() => {
       <div class="layer-icon${isCircle?' circle':''}" style="background:${def.color}"></div>
       <span class="layer-name">${_esc(def.name)}</span>
       <span class="layer-count" id="cnt-${def.id}"></span>
+      <button class="expand-btn" id="expand-${def.id}" title="Show points" onclick="UI.toggleLayerExpand('${def.id}',event)">▸</button>
       <button class="gear-btn" title="Edit style" onclick="UI.openStylePanel('${def.id}',event)">⚙</button>
       ${isCustom?`<button class="layer-remove" onclick="UI.removeCustomLayer('${def.id}',event)" title="Remove">×</button>`:''}
     `;
 
     row.addEventListener('click', e => {
-      if (['layer-toggle','drag-handle','layer-remove','gear-btn'].some(c=>e.target.classList.contains(c))) return;
+      if (['layer-toggle','drag-handle','layer-remove','gear-btn','expand-btn'].some(c=>e.target.classList.contains(c))) return;
       _selectLayer(def.id);
       opRow.classList.toggle('visible');
     });
@@ -256,10 +257,65 @@ const UI = (() => {
       </div>
     `;
 
+    // Points list (collapsed by default)
+    const ptList = document.createElement('div');
+    ptList.className = 'layer-pt-list';
+    ptList.id = `ptlist-${def.id}`;
+    ptList.style.display = 'none';
+
     wrap.appendChild(row);
     wrap.appendChild(opRow);
     wrap.appendChild(panel);
+    wrap.appendChild(ptList);
     return wrap;
+  }
+
+  function toggleLayerExpand(layerId, e) {
+    if (e) e.stopPropagation();
+    const list = document.getElementById(`ptlist-${layerId}`);
+    const btn  = document.getElementById(`expand-${layerId}`);
+    if (!list) return;
+    const open = list.style.display === 'none';
+    list.style.display = open ? 'block' : 'none';
+    if (btn) btn.textContent = open ? '▾' : '▸';
+    if (open) _buildPointList(layerId);
+  }
+
+  function _buildPointList(layerId) {
+    const list = document.getElementById(`ptlist-${layerId}`);
+    if (!list) return;
+    const pts = Layers.getPoints(layerId);
+    const def = Layers.getDef(layerId);
+    if (!pts.length) { list.innerHTML = `<div class="pt-list-empty">No points</div>`; return; }
+    const br = def.shape==='circle'?'50%':'2px';
+    list.innerHTML = pts.map(pt => {
+      const isSel = Layers.isSelected(layerId, pt.id);
+      return `<div class="pt-list-row${isSel?' pt-selected':''}" data-lid="${layerId}" data-pid="${pt.id}">
+        <input type="checkbox" class="pt-cb" ${isSel?'checked':''} onchange="UI._ptCheckChange('${layerId}','${pt.id}',this.checked)" onclick="event.stopPropagation()"/>
+        <span class="pt-swatch" style="background:${def.color};border-radius:${br}"></span>
+        <span class="pt-label">${_esc(pt.name||'Unnamed')}</span>
+        <button class="pt-edit-btn" onclick="event.stopPropagation();Points.openEditPopup('${layerId}','${pt.id}')">✎</button>
+      </div>`;
+    }).join('');
+    // Click row = open popup; shift/ctrl = toggle select
+    list.querySelectorAll('.pt-list-row').forEach(row => {
+      row.addEventListener('click', e => {
+        if (e.target.classList.contains('pt-cb') || e.target.classList.contains('pt-edit-btn')) return;
+        const lid = row.dataset.lid, pid = row.dataset.pid;
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          Layers.toggleSelect(lid, pid);
+          _buildPointList(lid);
+        } else {
+          const pt = Layers.findPoint(lid, pid);
+          if (pt) { window.map && window.map.setView([pt.lat, pt.lng], Math.max(window.map.getZoom(), 18)); }
+        }
+      });
+    });
+  }
+
+  function _ptCheckChange(layerId, ptId, checked) {
+    if (checked !== Layers.isSelected(layerId, ptId)) Layers.toggleSelect(layerId, ptId);
+    _buildPointList(layerId);
   }
 
   function setLayerOpacity(layerId, val) {
@@ -518,5 +574,6 @@ const UI = (() => {
     doLogin, doLogout,
     toast, exportGeoJSON,
     _toggleLayerDropdown, _selectLayer,
+    toggleLayerExpand, _buildPointList, _ptCheckChange,
   };
 })();

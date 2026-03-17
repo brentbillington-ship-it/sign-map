@@ -34,7 +34,11 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
   display:flex;align-items:center;gap:3px;padding:0 12px;
   position:relative;z-index:1100;flex-shrink:0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
 }
+#draw-toolbar::-webkit-scrollbar{display:none;}
 .toolbar-sep { width:1px;height:24px;background:var(--border2);margin:0 6px;flex-shrink:0; }
 .toolbar-btn {
   display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius);
@@ -250,16 +254,27 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 
 /* ── MAP LABEL FIX - prevent vertical text ── */
 .map-label{
-  background:rgba(13,17,23,0.72);color:#e6edf3;
+  background:rgba(13,17,23,0.82);color:#e6edf3;
   font-family:'DM Mono',monospace;font-size:9px;
   padding:2px 5px;border-radius:3px;
-  white-space:normal;max-width:120px;word-wrap:break-word;
+  white-space:nowrap;
   border:1px solid rgba(104,148,158,0.2);
   line-height:1.3;
   writing-mode:horizontal-tb !important;
+  -webkit-writing-mode:horizontal-tb !important;
   text-orientation:mixed !important;
   transform:none !important;
-  display:block;
+  display:inline-block;
+}
+/* Measure/annotation labels match point label style */
+.ann-measure-label{
+  background:rgba(13,17,23,0.82);color:#e6edf3;
+  font-family:'DM Mono',monospace;font-size:9px;
+  padding:2px 5px;border-radius:3px;
+  white-space:nowrap;
+  border:1px solid rgba(104,148,158,0.2);
+  writing-mode:horizontal-tb !important;
+  -webkit-writing-mode:horizontal-tb !important;
 }
 
 /* ── MOBILE CANCEL BAR ── */
@@ -369,15 +384,36 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .gc-h{position:absolute;top:50%;left:0;right:0;height:1.5px;background:#fff;transform:translateY(-50%);}
 .gc-v{position:absolute;left:50%;top:0;bottom:0;width:1.5px;background:#fff;transform:translateX(-50%);}
 .ghost-text{font-family:'DM Mono',monospace;font-size:14px;color:rgba(255,255,255,0.6);font-weight:700;}
+/* ── POINT LIST (layer expand) ── */
+.expand-btn{width:16px;height:16px;border:none;background:transparent;color:var(--muted2);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;}
+.expand-btn:hover{color:var(--accent);}
+.layer-pt-list{background:var(--bg);border-top:1px solid var(--border);}
+.pt-list-row{display:flex;align-items:center;gap:6px;padding:4px 10px 4px 22px;cursor:pointer;font-size:10px;color:var(--text);border-bottom:1px solid var(--border);}
+.pt-list-row:hover{background:rgba(104,148,158,0.07);}
+.pt-list-row.pt-selected{background:rgba(104,148,158,0.15);}
+.pt-list-empty{padding:6px 22px;font-size:10px;color:var(--muted2);}
+.pt-cb{width:12px;height:12px;flex-shrink:0;accent-color:var(--accent);cursor:pointer;}
+.pt-swatch{width:9px;height:9px;flex-shrink:0;border:1px solid rgba(255,255,255,0.2);}
+.pt-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pt-edit-btn{width:16px;height:16px;border:none;background:transparent;color:var(--muted2);font-size:11px;cursor:pointer;flex-shrink:0;opacity:0;}
+.pt-list-row:hover .pt-edit-btn{opacity:1;}
+
+/* ── MOBILE SIDEBAR TOGGLE ── */
+#mobile-sidebar-toggle{display:none;position:absolute;top:10px;left:10px;z-index:1000;
+  width:32px;height:32px;border-radius:4px;background:var(--panel);border:1px solid var(--border2);
+  font-size:16px;color:var(--text);cursor:pointer;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,0.4);}
+
 /* ── MOBILE ── */
 @media(orientation:portrait){#rotate-overlay{display:flex;}}
 #rotate-overlay{display:none;position:fixed;inset:0;z-index:99999;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:'DM Mono',monospace;color:var(--text);}
 #rotate-overlay .rotate-icon{font-size:48px;animation:rotateHint 2s ease-in-out infinite;}
 @keyframes rotateHint{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
 #rotate-overlay p{font-size:13px;color:var(--muted);}
+
+/* Portrait mobile */
 @media(max-width:768px) and (orientation:landscape){
   :root{--panel-w:200px;--toolbar-h:40px;}
-  /* Compact sidebar on mobile landscape */
   #sidebar-header{padding:6px 10px;}
   #sidebar-header h1{font-size:13px;}
   #sidebar-header p{display:none;}
@@ -398,14 +434,13 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   #credit-footer{display:none;}
   #bottom-panel{padding:5px;gap:4px;}
   .tool-btn{padding:4px 7px;font-size:9px;}
-  /* Toolbar - icons only */
   .toolbar-btn>span{display:none;}
   .toolbar-btn{padding:5px 8px;}
   .leaflet-popup-content-wrapper{max-width:85vw!important;}
   #draw-options-bar{flex-wrap:wrap;max-width:90vw;}
-  /* Brightness slider repositioned on mobile */
-  #brightness-wrap{bottom:22px;font-size:9px;}
+  #brightness-wrap{display:none;}
 }
+
 /* ── REMOVE COLLAPSE BTN ── */
 #collapse-btn{display:none!important;}
 #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:20px;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:9999;white-space:nowrap;}
@@ -561,6 +596,9 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   <div id="credit-footer">Created by Brent Billington<br>Chaka Campaign — Place 5</div>
 
   <div id="bottom-panel">
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:10px;color:var(--muted2);">
+      ☀️ <input type="range" id="brightness-slider-sidebar" min="30" max="150" value="100" style="flex:1;accent-color:var(--accent);" oninput="setBrightness(this.value)"/>
+    </div>
     <button class="tool-btn" onclick="UI.openAddLayer()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Custom Layer
@@ -572,6 +610,15 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   </div>
 </div>
 
+<!-- MASS DELETE BAR -->
+<div id="mass-delete-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:2000;
+  background:var(--navy);border-top:2px solid var(--accent);padding:10px 16px;
+  align-items:center;gap:12px;font-family:'DM Mono',monospace;font-size:12px;color:#fff;">
+  <span id="mass-delete-label">0 points selected</span>
+  <button onclick="Layers.massDelete()" style="background:#e05252;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;">🗑 Delete Selected</button>
+  <button onclick="Layers.clearSelection();Layers.renderAll();" style="background:transparent;color:var(--muted);border:1px solid var(--border2);padding:6px 10px;border-radius:4px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;">Cancel</button>
+</div>
+
 <!-- MAP WRAP -->
 <div id="map-wrap">
   <div id="map"></div>
@@ -579,6 +626,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   <div id="brightness-wrap">
     ☀️ <input type="range" id="brightness-slider" min="30" max="150" value="100" oninput="setBrightness(this.value)"/>
   </div>
+  <button id="mobile-sidebar-toggle" onclick="UI.toggleSidebar()" title="Toggle sidebar">☰</button>
   <button id="location-btn" onclick="UI.toggleMyLocation()" title="My location">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2" opacity="0.4"/></svg>
   </button>
@@ -785,6 +833,13 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   });
 
   window.map = map;
+
+  // Mobile: collapse sidebar by default and show toggle button
+  if (window.matchMedia('(max-width:768px)').matches) {
+    document.getElementById('sidebar').classList.add('collapsed');
+    const tog = document.getElementById('mobile-sidebar-toggle');
+    if (tog) tog.style.display = 'flex';
+  }
 })();
 </script>
 </body>
