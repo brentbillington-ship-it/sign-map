@@ -1,6 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// parcels_layer.js — v3.1e
-// Parcels NON-INTERACTIVE by default. Only respond when Identify mode active.
+// parcels_layer.js — v3.2 — parcelPane below markerPane, pane-level pointer-events
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ParcelsLayer = (() => {
@@ -8,11 +7,12 @@ const ParcelsLayer = (() => {
   let geojsonLayer   = null;
   let selectedLayer  = null;
   let visible        = true;
-  let identifyActive = true;  // ON by default, disabled during draw/SV
+  let identifyActive = true;
   let searchPin      = null;
   let searchPinData  = null;
+  let parcelPaneEl   = null;
 
-  const STYLE_DEFAULT  = { color:'#f5d76e', weight:1.2, opacity:0.6, fillOpacity:0.0, interactive:false };
+  const STYLE_DEFAULT  = { color:'#f5d76e', weight:1.2, opacity:0.6, fillOpacity:0.0 };
   const STYLE_HOVER    = { weight:2, color:'#ffe066', fillOpacity:0.06 };
   const STYLE_SELECTED = { weight:2.5, color:'#ffffff', fillColor:'#ffffff', fillOpacity:0.15 };
 
@@ -42,7 +42,13 @@ const ParcelsLayer = (() => {
   function init(map) {
     mapRef = map;
     if (typeof PARCELS_GEOJSON === 'undefined') return;
+
+    // Create a dedicated pane BELOW markerPane (600) so markers always win clicks
+    parcelPaneEl = map.createPane('parcelPane');
+    parcelPaneEl.style.zIndex = 350;
+
     geojsonLayer = L.geoJSON(PARCELS_GEOJSON, {
+      pane: 'parcelPane',
       style: () => ({...STYLE_DEFAULT}),
       onEachFeature: (feature, layer) => {
         layer.on({
@@ -52,19 +58,15 @@ const ParcelsLayer = (() => {
         });
       },
     }).addTo(mapRef);
-    // Enable pointer events immediately since identify is on by default
-    setTimeout(() => setIdentifyMode(true), 0);
   }
 
   // ── IDENTIFY MODE ────────────────────────────────────────────────────────────
+  // Toggle pointer-events on the entire pane — one DOM op instead of 16k
   function setIdentifyMode(active) {
     identifyActive = active;
-    if (!geojsonLayer) return;
-    geojsonLayer.eachLayer(l => {
-      if (l._path) l._path.style.pointerEvents = active ? 'visiblePainted' : 'none';
-    });
-    // Only override cursor when disabling — when re-enabling, let caller set cursor
-    if (!active && mapRef) mapRef.getContainer().style.cursor = 'crosshair';
+    if (parcelPaneEl) {
+      parcelPaneEl.style.pointerEvents = active ? 'auto' : 'none';
+    }
     if (!active) _deselect();
   }
 

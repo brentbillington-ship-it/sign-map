@@ -788,11 +788,20 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   loadLayerStyles();
   ParcelsLayer.init(map);
   Points.init(map, () => {
-    // Points now call Sync.addPoint/updatePoint/deletePoint directly
     setSyncStatus('saving');
     setTimeout(() => setSyncStatus('saved'), 1500);
   });
   Points.renderAll(); // register _onMarkerClick as _lastMarkerClick in Layers
+
+  // ── CACHE: render from localStorage immediately while Sheet loads ──
+  try {
+    const cached = localStorage.getItem('chakaPointsCache');
+    if (cached) {
+      const data = JSON.parse(cached);
+      Layers.loadFromSheets(data, Points.getMarkerClickHandler());
+    }
+  } catch(e) {}
+
   Annotations.init(map, anns => {
     setSyncStatus('saving');
     Sync.saveAnnotations(anns);
@@ -816,6 +825,8 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 
     Sync.startRefresh(data => {
       Layers.loadFromSheets(data.points || {}, Points.getMarkerClickHandler());
+      // Cache points locally for fast next load
+      try { localStorage.setItem('chakaPointsCache', JSON.stringify(data.points || {})); } catch(e) {}
       if (data.annotations) Annotations.loadFromSheets(data.annotations);
       updateToolbarLayer();
       setSyncStatus('saved');
