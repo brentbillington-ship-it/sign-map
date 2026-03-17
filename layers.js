@@ -203,19 +203,18 @@ const Layers = (() => {
     const isSquare = def.shape === 'square';
     const s = isSquare ? 16 : 10;
     const op = opacityMap[layerId] ?? 1;
-    // Convert hex+opacity to rgba so iOS Safari renders colors correctly
-    // (applying opacity to the element causes Safari to reinterpret colors)
+    // Use solid hex color — rgba + alpha borders/shadows render wrong on iOS Safari
     const hex = def.color.replace('#','');
     const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
     const bg = op < 1 ? `rgba(${r},${g},${b},${op})` : def.color;
     const ring = selected
-      ? `box-shadow:0 0 0 2px #fff,0 2px 8px rgba(0,0,0,0.7);`
-      : `box-shadow:0 1px 5px rgba(0,0,0,0.5);`;
+      ? `box-shadow:0 0 0 2px #fff,0 2px 6px #000;`
+      : `box-shadow:0 1px 4px #000;`;
     const html = `<div class="chaka-marker" style="
       width:${s}px;height:${s}px;
       background:${bg};
       border-radius:${isSquare?'2px':'50%'};
-      border:2px solid rgba(255,255,255,0.35);
+      border:1.5px solid #fff;
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
       ${ring}

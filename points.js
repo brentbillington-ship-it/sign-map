@@ -138,7 +138,7 @@ const Points = (() => {
     const def = Layers.getDef(layerId);
     if (!def) return;
     const addedBy  = pt.addedBy  ? _esc(pt.addedBy)  : '—';
-    const editedBy = pt.editedBy ? `${_esc(pt.editedBy)}${pt.editedAt ? ` · ${_esc(pt.editedAt)}` : ''}` : '—';
+    const editedBy = pt.editedBy ? `${_esc(pt.editedBy)}${pt.editedAt ? ` · ${_esc(_fmtDate(pt.editedAt))}` : ''}` : '—';
 
     const div = document.createElement('div');
     div.className = 'point-popup';
@@ -425,6 +425,18 @@ const Points = (() => {
     if (!el) return undefined;
     if (el.value === '__KEEP__') return undefined; // don't change
     return el.value || ''; // '' means remove, dataUrl means new photo
+  }
+
+  function _fmtDate(s) {
+    if (!s) return '';
+    // Already clean short format like "3/16/2026, 5:21:17 PM" — pass through
+    if (s.length < 30) return s;
+    // Raw Date.toString() like "Mon Mar 16 2026 17:21:17 GMT-0500 (...)" — reformat
+    try {
+      const d = new Date(s);
+      if (!isNaN(d)) return d.toLocaleString('en-US', { timeZone:'America/Chicago' });
+    } catch(e) {}
+    return s;
   }
 
   function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

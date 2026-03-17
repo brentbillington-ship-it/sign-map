@@ -399,7 +399,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .pt-list-row:hover .pt-edit-btn{opacity:1;}
 
 /* ── MOBILE SIDEBAR TOGGLE ── */
-#mobile-sidebar-toggle{display:none;position:absolute;top:90px;left:10px;z-index:1000;
+#mobile-sidebar-toggle{display:none;position:absolute;top:max(90px, calc(env(safe-area-inset-top, 0px) + 50px));left:max(10px, env(safe-area-inset-left, 0px));z-index:1000;
   width:32px;height:32px;border-radius:4px;background:var(--panel);border:1px solid var(--border2);
   font-size:16px;color:var(--text);cursor:pointer;align-items:center;justify-content:center;
   box-shadow:0 2px 8px rgba(0,0,0,0.4);}
@@ -635,7 +635,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 
   <div id="bottom-panel">
     <div style="display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:10px;color:var(--muted2);">
-      ☀️ <input type="range" id="brightness-slider-sidebar" min="30" max="150" value="100" style="flex:1;accent-color:var(--accent);" oninput="setBrightness(this.value)"/>
+      ☀️ <input type="range" id="brightness-slider-sidebar" min="30" max="150" value="70" style="flex:1;accent-color:var(--accent);" oninput="setBrightness(this.value)"/>
     </div>
     <button class="tool-btn" onclick="UI.openAddLayer()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -796,6 +796,8 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   window.setBrightness = function(val) {
     aerialPane.style.filter = `brightness(${val}%)`;
   };
+  // Set default brightness
+  setBrightness(70);
 
   const labelsPane = map.createPane('labelsPane');
   labelsPane.style.zIndex = 450;
