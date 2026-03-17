@@ -18,16 +18,20 @@ const Points = (() => {
     map.on('click', e => {
       UI.hideCtxMenu();
       if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
-      if (!placeMode) return;
+      if (!placeMode) {
+        // Deselect any selected point when clicking empty map
+        if (selectedPoint) { deselect(); mapRef.closePopup(); }
+        return;
+      }
       if (drawToolActive) return;
       const layerId = UI.getActiveLayerId();
       openNewPopup(e.latlng, layerId);
-      // Stay active — user clicks again to place another, right-click or Esc to cancel
     });
 
     map.on('contextmenu', e => {
-      // Right-click deactivates point tool
       if (placeMode) { deactivateTool(); return; }
+      // Deselect on right-click
+      if (selectedPoint) { deselect(); mapRef.closePopup(); }
       const layerId = UI.getActiveLayerId();
       const def = Layers.getDef(layerId);
       UI.showCtxMenu(e.originalEvent, {

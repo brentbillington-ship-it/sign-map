@@ -112,10 +112,12 @@ const UI = (() => {
         ${Layers.getOrder().filter(id=>Layers.getDef(id)).map(id => {
           const d = Layers.getDef(id);
           const c = (Layers.getPoints(id)||[]).length;
-          return `<div class="dd-option${id===activeId?' selected':''}" onclick="UI._selectLayer('${id}')">
+          const isActive = id===activeId;
+          return `<div class="dd-option${isActive?' selected':''}" onclick="UI._selectLayer('${id}')" style="${isActive?'background:rgba(104,148,158,0.2);border-left:2px solid var(--accent);':''}">
             <span class="dd-swatch" style="background:${d.color};border-radius:${d.shape==='circle'?'50%':'2px'}"></span>
             <span class="dd-label">${_esc(d.name)}</span>
             ${c?`<span class="dd-cnt">${c}</span>`:''}
+            ${isActive?'<span style="color:var(--accent);font-size:10px;margin-left:auto">✓</span>':''}
           </div>`;
         }).join('')}
       </div>
@@ -238,7 +240,13 @@ const UI = (() => {
     panel.id = `style-panel-${def.id}`;
     panel.innerHTML = `
       <div class="sp-row"><label>Name</label><input id="sp-name-${def.id}" type="text" value="${_esc(def.name)}" placeholder="Layer name"/></div>
-      <div class="sp-row"><label>Color</label><input id="sp-color-${def.id}" type="color" value="${def.color}"/></div>
+      <div class="sp-row"><label>Color</label>
+        <input id="sp-color-${def.id}" type="color" value="${def.color}" style="width:28px;height:22px;padding:1px;flex-shrink:0;"
+          oninput="document.getElementById('sp-hex-${def.id}').value=this.value"/>
+        <input id="sp-hex-${def.id}" type="text" value="${def.color}" placeholder="#rrggbb"
+          style="width:72px;font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;"
+          oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('sp-color-${def.id}').value=this.value"/>
+      </div>
       <div class="sp-row"><label>Shape</label>
         <select id="sp-shape-${def.id}">
           <option value="circle"${def.shape==='circle'?' selected':''}>Circle (small)</option>
@@ -278,6 +286,8 @@ const UI = (() => {
     if (open) _buildPointList(layerId);
   }
 
+  let _lastClickedPt = null; // { layerId, idx } for shift+click range
+
   function _buildPointList(layerId) {
     const list = document.getElementById(`ptlist-${layerId}`);
     if (!list) return;
@@ -285,26 +295,38 @@ const UI = (() => {
     const def = Layers.getDef(layerId);
     if (!pts.length) { list.innerHTML = `<div class="pt-list-empty">No points</div>`; return; }
     const br = def.shape==='circle'?'50%':'2px';
-    list.innerHTML = pts.map(pt => {
+    list.innerHTML = pts.map((pt, idx) => {
       const isSel = Layers.isSelected(layerId, pt.id);
-      return `<div class="pt-list-row${isSel?' pt-selected':''}" data-lid="${layerId}" data-pid="${pt.id}">
+      return `<div class="pt-list-row${isSel?' pt-selected':''}" data-lid="${layerId}" data-pid="${pt.id}" data-idx="${idx}">
         <input type="checkbox" class="pt-cb" ${isSel?'checked':''} onchange="UI._ptCheckChange('${layerId}','${pt.id}',this.checked)" onclick="event.stopPropagation()"/>
         <span class="pt-swatch" style="background:${def.color};border-radius:${br}"></span>
         <span class="pt-label">${_esc(pt.name||'Unnamed')}</span>
         <button class="pt-edit-btn" onclick="event.stopPropagation();Points.openEditPopup('${layerId}','${pt.id}')">✎</button>
       </div>`;
     }).join('');
-    // Click row = open popup; shift/ctrl = toggle select
+
     list.querySelectorAll('.pt-list-row').forEach(row => {
       row.addEventListener('click', e => {
         if (e.target.classList.contains('pt-cb') || e.target.classList.contains('pt-edit-btn')) return;
-        const lid = row.dataset.lid, pid = row.dataset.pid;
-        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        const lid = row.dataset.lid, pid = row.dataset.pid, idx = parseInt(row.dataset.idx);
+        if (e.shiftKey && _lastClickedPt && _lastClickedPt.layerId === lid) {
+          // Range select between last clicked and current
+          const pts2 = Layers.getPoints(lid);
+          const from = Math.min(_lastClickedPt.idx, idx);
+          const to   = Math.max(_lastClickedPt.idx, idx);
+          for (let i = from; i <= to; i++) {
+            if (!Layers.isSelected(lid, pts2[i].id)) Layers.toggleSelect(lid, pts2[i].id);
+          }
+          _buildPointList(lid);
+        } else if (e.ctrlKey || e.metaKey) {
           Layers.toggleSelect(lid, pid);
+          _lastClickedPt = { layerId: lid, idx };
           _buildPointList(lid);
         } else {
+          // Plain click — fly to point
           const pt = Layers.findPoint(lid, pid);
-          if (pt) { window.map && window.map.setView([pt.lat, pt.lng], Math.max(window.map.getZoom(), 18)); }
+          if (pt) window.map && window.map.setView([pt.lat, pt.lng], Math.max(window.map.getZoom(), 18));
+          _lastClickedPt = { layerId: lid, idx };
         }
       });
     });
@@ -553,7 +575,9 @@ const UI = (() => {
       }));
     });
     const blob=new Blob([JSON.stringify({type:'FeatureCollection',features},null,2)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='chaka-signs-export.geojson'; a.click();
+    const now=new Date().toLocaleString('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+    const ts=now.replace(/[\/, :]/g,'-').replace(/--/g,'-');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`chaka-signs-${ts}.geojson`; a.click();
     toast('Exported!');
   }
 

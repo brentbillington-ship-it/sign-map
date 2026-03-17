@@ -48,7 +48,7 @@ const ParcelsLayer = (() => {
         layer.on({
           mouseover: e => { if (!identifyActive || e.target===selectedLayer) return; e.target.setStyle(STYLE_HOVER); },
           mouseout:  e => { if (!identifyActive || e.target===selectedLayer) return; geojsonLayer.resetStyle(e.target); },
-          click:     e => { if (!identifyActive) return; L.DomEvent.stopPropagation(e); _select(feature, layer, e); },
+          click:     e => { if (!identifyActive) return; _select(feature, layer, e); },
         });
       },
     }).addTo(mapRef);

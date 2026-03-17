@@ -204,7 +204,32 @@ function saveAnnotations(annotations) {
   return { ok: true, count: rows.length };
 }
 
-// ── PRESENCE ──────────────────────────────────────────────────────────────────
+// ── DAILY BACKUP ──────────────────────────────────────────────────────────────
+// To activate: In Apps Script editor → Triggers (clock icon) → Add Trigger
+//   Function: createDailyBackup | Event: Time-driven | Timer: Day timer | Time: 2am-3am
+function createDailyBackup() {
+  const ss       = SpreadsheetApp.openById(SHEET_ID);
+  const source   = ss.getSheetByName(POINTS_SHEET);
+  if (!source) return;
+  const dateStr  = Utilities.formatDate(new Date(), 'America/Chicago', 'yyyy-MM-dd');
+  const backupName = `Backup_${dateStr}`;
+  // Don't duplicate if already ran today
+  if (ss.getSheetByName(backupName)) return;
+  // Copy the sheet
+  const copy = source.copyTo(ss);
+  copy.setName(backupName);
+  ss.setActiveSheet(copy);
+  ss.moveActiveSheet(ss.getNumSheets());
+  // Prune backups older than 7 days
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  ss.getSheets().forEach(sheet => {
+    const n = sheet.getName();
+    if (!n.startsWith('Backup_')) return;
+    const d = new Date(n.replace('Backup_',''));
+    if (!isNaN(d) && d < cutoff) ss.deleteSheet(sheet);
+  });
+}
 function loadPresence() {
   const ss    = SpreadsheetApp.openById(SHEET_ID);
   const sheet = ss.getSheetByName(PRESENCE_SHEET);
