@@ -260,53 +260,24 @@ const Layers = (() => {
       });
       marker._ptLayerId = layerId;
       marker._ptId = pt.id;
-
-      // ── LONG-PRESS TO DRAG ──────────────────────────────────────────────────
-      let _pressTimer = null;
-      let _dragEnabled = false;
-
-      marker.on('add', () => {
-        // Disable drag immediately after marker is added to map
-        if (marker.dragging) marker.dragging.disable();
-      });
-
-      const _startPress = () => {
-        _dragEnabled = false;
-        _pressTimer = setTimeout(() => {
-          _dragEnabled = true;
-          if (marker.dragging) marker.dragging.enable();
-          const el = marker.getElement();
-          if (el) el.style.cursor = 'grabbing';
-        }, 400);
-      };
-      const _cancelPress = () => {
-        clearTimeout(_pressTimer);
-        if (!_dragEnabled && marker.dragging) marker.dragging.disable();
-      };
-
-      marker.on('mousedown touchstart', _startPress);
-      marker.on('mouseup touchend', _cancelPress);
+      marker._wasDragged = false;
 
       marker.on('click', e => {
         L.DomEvent.stopPropagation(e);
+        if (marker._wasDragged) { marker._wasDragged = false; return; }
         if (e.originalEvent && (e.originalEvent.shiftKey || e.originalEvent.ctrlKey || e.originalEvent.metaKey)) {
           toggleSelect(layerId, pt.id);
           return;
         }
-        if (_dragEnabled) return;
         clickHandler(layerId, pt, marker);
       });
 
       marker.on('dragstart', () => {
-        clearTimeout(_pressTimer);
         pushUndo(_snapshot());
       });
 
       marker.on('dragend', e => {
-        _dragEnabled = false;
-        if (marker.dragging) marker.dragging.disable();
-        const el = marker.getElement();
-        if (el) el.style.cursor = '';
+        marker._wasDragged = true;
         _justDragged = true;
         setTimeout(() => { _justDragged = false; }, 300);
 
@@ -317,6 +288,7 @@ const Layers = (() => {
         const origLng = allPoints[layerId][idx].lng;
         if (!confirm('Move point to new location?')) {
           marker.setLatLng([origLat, origLng]);
+          marker._wasDragged = false;
           return;
         }
         allPoints[layerId][idx].lat = pos.lat;
