@@ -45,12 +45,13 @@ const Points = (() => {
   }
 
   // ── DRAW TOOL STATE (called by Annotations) ───────────────────────────────────
+  function getMarkerClickHandler() { return _onMarkerClick; }
+
   function setDrawToolActive(val) {
     drawToolActive = val;
     if (!val && !svMode) {
-      // Restore identify when draw tool exits (unless place mode is on)
       if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
-      mapRef.getContainer().style.cursor = placeMode ? 'crosshair' : 'grab';
+      mapRef.getContainer().style.cursor = placeMode ? 'crosshair' : 'default';
     }
   }
 
@@ -70,7 +71,7 @@ const Points = (() => {
       mapRef.getContainer().style.cursor = 'crosshair';
     } else {
       if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(!placeMode);
-      mapRef.getContainer().style.cursor = placeMode ? 'crosshair' : 'grab';
+      mapRef.getContainer().style.cursor = placeMode ? 'crosshair' : 'default';
     }
   }
 
@@ -97,7 +98,7 @@ const Points = (() => {
     if (btn) btn.classList.remove('active');
     document.getElementById('map').classList.remove('place-mode');
     if (typeof ParcelsLayer !== 'undefined') ParcelsLayer.setIdentifyMode(true);
-    mapRef.getContainer().style.cursor = 'grab';
+    mapRef.getContainer().style.cursor = 'default';
     const bar = document.getElementById('mobile-cancel-bar');
     if (bar) bar.classList.remove('show');
   }
@@ -336,6 +337,6 @@ const Points = (() => {
     select, deselect, getSelected, getCopied,
     openEditPopup, openNewPopup, streetViewAt,
     deletePoint, copySelected, pasteAt, pasteAtCenter,
-    renderAll,
+    renderAll, getMarkerClickHandler,
   };
 })();

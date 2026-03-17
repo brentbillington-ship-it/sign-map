@@ -623,9 +623,6 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 <div id="map-wrap">
   <div id="map"></div>
   <div id="coords-bar"><span id="coords-display">—</span></div>
-  <div id="brightness-wrap">
-    ☀️ <input type="range" id="brightness-slider" min="30" max="150" value="100" oninput="setBrightness(this.value)"/>
-  </div>
   <button id="mobile-sidebar-toggle" onclick="UI.toggleSidebar()" title="Toggle sidebar">☰</button>
   <button id="location-btn" onclick="UI.toggleMyLocation()" title="My location">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2" opacity="0.4"/></svg>
@@ -818,7 +815,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     UI._selectLayer = function(id) { origSelect(id); updateToolbarLayer(); };
 
     Sync.startRefresh(data => {
-      Layers.loadFromSheets(data.points || {});
+      Layers.loadFromSheets(data.points || {}, Points.getMarkerClickHandler());
       if (data.annotations) Annotations.loadFromSheets(data.annotations);
       updateToolbarLayer();
       setSyncStatus('saved');

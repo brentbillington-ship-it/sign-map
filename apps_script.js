@@ -231,6 +231,8 @@ function saveHeartbeat(sessionId, name, ts) {
       return { ok: true };
     }
   }
+  // First time we've seen this session — log it as a login event
+  _logLogin(ss, sessionId, name, ts);
   sheet.appendRow([String(sessionId), name, ts]);
   // Prune stale rows
   const d2 = sheet.getDataRange().getValues();
@@ -239,4 +241,17 @@ function saveHeartbeat(sessionId, name, ts) {
     if (Number(d2[i][2]) < cutoff) sheet.deleteRow(i+1);
   }
   return { ok: true };
+}
+
+function _logLogin(ss, sessionId, name, ts) {
+  const LOGIN_SHEET = 'Login Log';
+  let sheet = ss.getSheetByName(LOGIN_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(LOGIN_SHEET);
+    sheet.appendRow(['sessionId', 'name', 'timestamp', 'date']);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1,1,1,4).setFontWeight('bold');
+  }
+  const date = Utilities.formatDate(new Date(ts), 'America/Chicago', 'yyyy-MM-dd HH:mm:ss');
+  sheet.appendRow([String(sessionId), String(name), Number(ts), date]);
 }

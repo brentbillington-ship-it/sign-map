@@ -110,11 +110,14 @@ const ParcelsLayer = (() => {
 
   function searchParcels(query) {
     if (!geojsonLayer || !query) return [];
-    const q = query.toLowerCase().trim();
+    const normalize = s => (s||'').toLowerCase().replace(/&/g,' and ').replace(/\band\b/g,' and ').replace(/\s+/g,' ').trim();
+    const q = normalize(query);
+    const words = q.split(' ').filter(Boolean);
     const results = [];
     geojsonLayer.eachLayer(layer => {
       const p = _scrub(layer.feature.properties||{});
-      if ([p.name,p.owner,p.addr1,p.addr2].join(' ').toLowerCase().includes(q))
+      const haystack = normalize([p.owner, p.addr1, p.addr2, p.name].join(' '));
+      if (words.every(w => haystack.includes(w)))
         results.push({ layer, props:p });
     });
     return results.slice(0,8);

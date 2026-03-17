@@ -61,7 +61,7 @@ const Annotations = (() => {
     if (drawLayer)  { mapRef.removeLayer(drawLayer);  drawLayer  = null; }
     if (ghostMarker){ mapRef.removeLayer(ghostMarker); ghostMarker= null; }
     document.querySelectorAll('.toolbar-btn[data-tool]').forEach(b => b.classList.remove('active'));
-    mapRef.getContainer().style.cursor = 'grab';
+    mapRef.getContainer().style.cursor = 'default';
     _hideOptionsBar();
     _setStatusHint(null);
     if (typeof Points !== 'undefined') Points.setDrawToolActive(false);

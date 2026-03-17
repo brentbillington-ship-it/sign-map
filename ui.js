@@ -223,7 +223,6 @@ const UI = (() => {
     row.addEventListener('click', e => {
       if (['layer-toggle','drag-handle','layer-remove','gear-btn','expand-btn'].some(c=>e.target.classList.contains(c))) return;
       _selectLayer(def.id);
-      opRow.classList.toggle('visible');
     });
     row.querySelector('.layer-toggle').addEventListener('click', e => { e.stopPropagation(); Layers.toggleVisibility(def.id); });
     row.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); Layers.zoomToLayer(def.id); });
@@ -233,12 +232,7 @@ const UI = (() => {
     row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
     row.addEventListener('drop',      e => { e.preventDefault(); row.classList.remove('drag-over'); if(_dragSrc&&_dragSrc!==def.id) Layers.reorderLayer(_dragSrc,def.id); });
 
-    // Opacity row
-    const opRow = document.createElement('div');
-    opRow.className = 'opacity-row';
-    opRow.innerHTML = `<span class="op-label">Opacity</span><input type="range" min="10" max="100" value="${opacity}" class="op-slider" oninput="UI.setLayerOpacity('${def.id}',this.value/100)"><span class="op-val">${opacity}%</span>`;
-
-    // Style editor panel
+    // Style editor panel (includes opacity)
     const panel = document.createElement('div');
     panel.className = 'layer-style-panel';
     panel.id = `style-panel-${def.id}`;
@@ -250,6 +244,10 @@ const UI = (() => {
           <option value="circle"${def.shape==='circle'?' selected':''}>Circle (small)</option>
           <option value="square"${def.shape==='square'?' selected':''}>Square (large)</option>
         </select>
+      </div>
+      <div class="sp-row"><label>Opacity</label>
+        <input type="range" min="10" max="100" value="${opacity}" id="sp-opacity-${def.id}" style="flex:1;accent-color:var(--accent);" oninput="UI.setLayerOpacity('${def.id}',this.value/100);document.getElementById('sp-opacity-val-${def.id}').textContent=this.value+'%'"/>
+        <span id="sp-opacity-val-${def.id}" style="font-size:9px;color:var(--muted2);min-width:28px;text-align:right">${opacity}%</span>
       </div>
       <div class="sp-btns">
         <button class="sp-save" onclick="UI.applyStyle('${def.id}')">Apply</button>
@@ -264,7 +262,6 @@ const UI = (() => {
     ptList.style.display = 'none';
 
     wrap.appendChild(row);
-    wrap.appendChild(opRow);
     wrap.appendChild(panel);
     wrap.appendChild(ptList);
     return wrap;
