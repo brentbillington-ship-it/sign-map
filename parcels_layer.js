@@ -43,9 +43,11 @@ const ParcelsLayer = (() => {
     mapRef = map;
     if (typeof PARCELS_GEOJSON === 'undefined') return;
 
-    // Create a dedicated pane BELOW markerPane (600) so markers always win clicks
+    // parcelPane sits BELOW markerPane (600) so markers always win z-order
     parcelPaneEl = map.createPane('parcelPane');
     parcelPaneEl.style.zIndex = 350;
+    // Keep pane pointer-events off — we manage per-path instead
+    parcelPaneEl.style.pointerEvents = 'none';
 
     geojsonLayer = L.geoJSON(PARCELS_GEOJSON, {
       pane: 'parcelPane',
@@ -58,15 +60,20 @@ const ParcelsLayer = (() => {
         });
       },
     }).addTo(mapRef);
+
+    // Start with identify on — stroke only so markers still receive clicks through fill
+    setTimeout(() => setIdentifyMode(true), 0);
   }
 
   // ── IDENTIFY MODE ────────────────────────────────────────────────────────────
-  // Toggle pointer-events on the entire pane — one DOM op instead of 16k
   function setIdentifyMode(active) {
     identifyActive = active;
-    if (parcelPaneEl) {
-      parcelPaneEl.style.pointerEvents = active ? 'auto' : 'none';
-    }
+    if (!geojsonLayer) return;
+    // Use 'visibleStroke' so only the yellow parcel lines are hittable,
+    // not the fill area — clicks in the middle of a parcel pass through to markers
+    geojsonLayer.eachLayer(l => {
+      if (l._path) l._path.style.pointerEvents = active ? 'visibleStroke' : 'none';
+    });
     if (!active) _deselect();
   }
 

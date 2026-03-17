@@ -90,7 +90,7 @@ body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);heig
   transition:width 0.28s ease,min-width 0.28s ease;
 }
 #sidebar.collapsed{width:0;min-width:0;overflow:hidden;}
-#sidebar-header{padding:10px 12px;border-bottom:1px solid var(--border);background:var(--navy);flex-shrink:0;}
+#sidebar-header{padding:10px 12px;border-bottom:1px solid var(--border);background:#CC0000;flex-shrink:0;}
 #sidebar-header h1{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#fff;letter-spacing:0.06em;text-transform:uppercase;}
 #sidebar-header p{font-size:9px;color:var(--mint);margin-top:1px;}
 
@@ -521,6 +521,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   </div>
 
   <div id="toolbar-version"></div>
+  <div style="font-size:9px;color:var(--muted2);letter-spacing:0.05em;flex-shrink:0;padding-left:8px;border-left:1px solid var(--border2);">by Brent Billington</div>
   <div id="toolbar-hint"></div>
 </div>
 
@@ -743,7 +744,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   labelsPane.style.pointerEvents = 'none';
 
   const streetLabels = L.tileLayer(
-    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+    'https://{s}.basemaps.cartocdn.com/dark_matter_only_labels/{z}/{x}/{y}{r}.png',
     { subdomains:'abcd', maxZoom:21, maxNativeZoom:19, opacity:0.9, pane:'labelsPane' }
   ).addTo(map);
 
