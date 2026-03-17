@@ -285,6 +285,7 @@ const Layers = (() => {
 
       marker.on('click', e => {
         L.DomEvent.stopPropagation(e);
+        Layers.markerClickedAt = Date.now();
         if (marker._wasDragged) { marker._wasDragged = false; return; }
         if (e.originalEvent && (e.originalEvent.shiftKey || e.originalEvent.ctrlKey || e.originalEvent.metaKey)) {
           toggleSelect(layerId, pt.id);
@@ -421,7 +422,7 @@ const Layers = (() => {
 
   function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  return {
+  const mod = {
     init, getDefs, getDef, getPoints, getAllPoints, isVisible, getOrder, getOpacity,
     loadFromSheets, makeIcon, renderLayer, renderAll,
     toggleVisibility, setOpacity, toggleLabels,
@@ -432,5 +433,7 @@ const Layers = (() => {
     checkDuplicate, updateLayerStyle, _updateAllCounts,
     toggleSelect, isSelected, clearSelection, getSelected, massDelete,
     justDragged,
+    markerClickedAt: 0,
   };
+  return mod;
 })();

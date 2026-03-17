@@ -20,8 +20,9 @@ const Points = (() => {
       UI.hideCtxMenu();
       if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
       if (!placeMode) {
-        // Skip deselect if the click landed on a marker div
+        // Skip deselect if a marker was just clicked (two guards for reliability)
         if (e.originalEvent && e.originalEvent.target && e.originalEvent.target.closest && e.originalEvent.target.closest('.chaka-marker')) return;
+        if (Layers.markerClickedAt && (Date.now() - Layers.markerClickedAt) < 50) return;
         if (Layers.justDragged()) return;
         if (selectedPoint) { deselect(); mapRef.closePopup(); }
         return;
