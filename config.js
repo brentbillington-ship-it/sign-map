@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// config.js — Chaka Signs Map v3.1c
+// config.js — Chaka Signs Map v3.3
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CONFIG = {
 
-  VERSION: 'v3.2j',
+  VERSION: 'v3.3',
 
   MAP_PASSWORD: 'choochoo',
 

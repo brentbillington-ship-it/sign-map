@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// layers.js — v3.1e
+// layers.js — v3.3 — Photo cache, popup-safe refresh
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Layers = (() => {
@@ -141,8 +141,25 @@ const Layers = (() => {
 
   function loadFromSheets(data, onMarkerClick) {
     _lastMarkerClick = onMarkerClick || _lastMarkerClick;
+
+    // Preserve local photo data (stripped from sheet load for bandwidth)
+    const photoCache = {};
+    Object.keys(allPoints).forEach(id => {
+      (allPoints[id]||[]).forEach(pt => {
+        if (pt.photo) photoCache[pt.id] = pt.photo;
+      });
+    });
+
     // Load all data from sheets first
     Object.keys(LAYER_DEFS).forEach(id => { allPoints[id] = data[id] || []; });
+
+    // Restore cached photos
+    Object.keys(allPoints).forEach(id => {
+      (allPoints[id]||[]).forEach(pt => {
+        if (!pt.photo && photoCache[pt.id]) pt.photo = photoCache[pt.id];
+      });
+    });
+
     // Auto-dedup: remove points with identical lat/lng within same layer
     Object.keys(LAYER_DEFS).forEach(id => {
       const pts = allPoints[id] || [];
@@ -151,7 +168,6 @@ const Layers = (() => {
       pts.forEach(pt => {
         const key = `${parseFloat(pt.lat).toFixed(6)},${parseFloat(pt.lng).toFixed(6)}`;
         if (seen.has(key)) {
-          // Keep the one with more content (has notes or longer name)
           const existing = seen.get(key);
           const existingScore = (existing.notes||'').length + (existing.name||'').length;
           const newScore = (pt.notes||'').length + (pt.name||'').length;
@@ -171,7 +187,12 @@ const Layers = (() => {
         console.log(`Auto-dedup: removed ${toDelete.length} duplicate(s) from ${id}`);
       }
     });
-    renderAll(null, _lastMarkerClick);
+
+    // Skip re-render if a popup is open (avoids destroying it mid-view)
+    const popupOpen = mapRef && mapRef._popup && mapRef._popup.isOpen && mapRef._popup.isOpen();
+    if (!popupOpen) {
+      renderAll(null, _lastMarkerClick);
+    }
     _updateAllCounts();
   }
 

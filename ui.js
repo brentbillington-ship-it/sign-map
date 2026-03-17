@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ui.js — v3.1d — Layer style editor, fixed credit color, custom dropdown
+// ui.js — v3.3 — Shortcuts modal, zoom-to-all
 // ─────────────────────────────────────────────────────────────────────────────
 
 const UI = (() => {
@@ -581,6 +581,20 @@ const UI = (() => {
     toast('Exported!');
   }
 
+  // ── SHORTCUTS MODAL ────────────────────────────────────────────────────────
+  function showShortcuts() { document.getElementById('shortcuts-modal').classList.add('open'); }
+  function closeShortcuts() { document.getElementById('shortcuts-modal').classList.remove('open'); }
+
+  // ── ZOOM TO FIT ─────────────────────────────────────────────────────────
+  function zoomToAll() {
+    const allPts = [];
+    Object.entries(Layers.getAllPoints()).forEach(([id, pts]) => {
+      if (Layers.isVisible(id)) (pts||[]).forEach(pt => allPts.push([pt.lat, pt.lng]));
+    });
+    if (!allPts.length) { toast('No visible points'); return; }
+    mapRef.fitBounds(L.latLngBounds(allPts), { padding:[40,40], maxZoom:17 });
+  }
+
   function _esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   return {
@@ -596,5 +610,6 @@ const UI = (() => {
     toast, exportGeoJSON,
     _toggleLayerDropdown, _selectLayer,
     toggleLayerExpand, _buildPointList, _ptCheckChange,
+    showShortcuts, closeShortcuts, zoomToAll,
   };
 })();

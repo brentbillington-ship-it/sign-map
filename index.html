@@ -445,6 +445,33 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 #collapse-btn{display:none!important;}
 #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border-radius:20px;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:9999;white-space:nowrap;}
 #toast.show{opacity:1;}
+
+/* ── PHOTO IN POPUP ── */
+.popup-photo-wrap{margin:6px 0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border2);}
+.popup-photo-img{width:100%;max-height:180px;object-fit:cover;cursor:pointer;display:block;transition:opacity 0.15s;}
+.popup-photo-img:hover{opacity:0.85;}
+.photo-fullscreen{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.photo-fullscreen img{max-width:92vw;max-height:92vh;object-fit:contain;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);}
+.photo-close{position:fixed;top:16px;right:20px;color:#fff;font-size:24px;cursor:pointer;z-index:100000;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.1);border-radius:50%;transition:background 0.15s;}
+.photo-close:hover{background:rgba(255,255,255,0.25);}
+
+/* ── PHOTO IN EDIT FORM ── */
+.ef-photo-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.btn-photo-upload{padding:4px 8px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;white-space:nowrap;}
+.btn-photo-upload:hover{background:rgba(104,148,158,0.15);}
+.btn-photo-remove{padding:2px 6px;background:transparent;color:#e05252;border:1px solid #e05252;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;}
+.ef-photo-status{font-size:9px;color:var(--muted2);}
+.ef-photo-preview{margin-bottom:4px;}
+.ef-photo-preview img{width:100%;max-height:120px;object-fit:cover;border-radius:var(--radius);border:1px solid var(--border2);}
+
+/* ── DROPDOWN OVERFLOW FIX ── */
+.leaflet-popup-content{overflow:visible!important;}
+.leaflet-popup-content-wrapper{overflow:visible!important;}
+
+/* ── SHORTCUTS MODAL ── */
+.shortcuts-grid{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:11px;}
+.shortcuts-grid kbd{display:inline-block;background:var(--bg);border:1px solid var(--border2);border-radius:3px;padding:2px 6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--mint);min-width:20px;text-align:center;}
+.shortcuts-grid span{color:var(--text);line-height:1.6;}
 </style>
 </head>
 <body>
@@ -511,6 +538,17 @@ body.sidebar-collapsed #collapse-btn{left:0;}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     Export
     <div class="tt">Download GeoJSON</div>
+  </button>
+
+  <button class="toolbar-btn" onclick="UI.zoomToAll()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+    Fit
+    <div class="tt">Zoom to all visible points</div>
+  </button>
+
+  <button class="toolbar-btn" onclick="UI.showShortcuts()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div class="tt">Keyboard shortcuts</div>
   </button>
 
   <div class="toolbar-sep"></div>
@@ -699,6 +737,27 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 </div>
 
 <input type="file" id="kmz-file-input" accept=".kmz,.kml,.geojson,.json" style="display:none" onchange="UI.handleKmzUpload(event)">
+
+<!-- SHORTCUTS MODAL -->
+<div id="shortcuts-modal" class="modal-overlay">
+  <div class="modal-box" style="width:320px">
+    <h3>Keyboard Shortcuts</h3>
+    <div class="shortcuts-grid">
+      <kbd>Ctrl+Z</kbd><span>Undo last action</span>
+      <kbd>Ctrl+C</kbd><span>Copy selected point</span>
+      <kbd>Ctrl+V</kbd><span>Paste point at map center</span>
+      <kbd>Del</kbd><span>Delete selected point</span>
+      <kbd>Esc</kbd><span>Cancel current tool / deselect</span>
+      <kbd>Shift+Click</kbd><span>Multi-select points (range)</span>
+      <kbd>Ctrl+Click</kbd><span>Toggle point selection</span>
+      <kbd>Right-click</kbd><span>Context menu / zoom to layer</span>
+    </div>
+    <div class="modal-btns" style="margin-top:6px">
+      <button class="modal-btn-cancel" style="width:100%;text-align:center" onclick="UI.closeShortcuts()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <div id="mobile-cancel-bar" onclick="Points.deactivateTool()">✕ Cancel placing point</div>
 
@@ -739,7 +798,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   };
 
   const labelsPane = map.createPane('labelsPane');
-  labelsPane.style.zIndex = 250;
+  labelsPane.style.zIndex = 450;
   labelsPane.style.pointerEvents = 'none';
 
   const streetLabels = L.tileLayer(

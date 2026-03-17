@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// points.js — v3.1d — Always-on placement, popup fix, attribution
+// points.js — v3.3 — Popup fix, photo upload, target-based deselect
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Points = (() => {
@@ -10,7 +10,7 @@ const Points = (() => {
   let svMode        = false;
   let placeMode     = false;
   let onSave        = null;
-  let _markerJustClicked = false;
+  // (flag removed — popup fix uses target check instead)
 
   function init(map, onSaveCallback) {
     mapRef = map;
@@ -20,7 +20,8 @@ const Points = (() => {
       UI.hideCtxMenu();
       if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
       if (!placeMode) {
-        if (_markerJustClicked) { _markerJustClicked = false; return; }
+        // Skip deselect if the click landed on a marker div
+        if (e.originalEvent && e.originalEvent.target && e.originalEvent.target.closest && e.originalEvent.target.closest('.chaka-marker')) return;
         if (Layers.justDragged()) return;
         if (selectedPoint) { deselect(); mapRef.closePopup(); }
         return;
@@ -132,8 +133,6 @@ const Points = (() => {
   function getCopied()   { return copiedPoint; }
 
   function _onMarkerClick(layerId, pt, marker) {
-    _markerJustClicked = true;
-    setTimeout(() => { _markerJustClicked = false; }, 300);
     select(layerId, pt.id);
     _showViewPopup(layerId, pt, marker);
   }
@@ -147,10 +146,16 @@ const Points = (() => {
 
     const div = document.createElement('div');
     div.className = 'point-popup';
+
+    // Photo thumbnail (lazy-loaded)
+    let photoHtml = '';
+    const hasPhotoLocal = pt.photo && pt.photo.length > 20;
+
     div.innerHTML = `
       <h3>${_swatchHtml(def,12)}${_esc(pt.name||'Unnamed')}</h3>
       <div class="meta">${_esc(def.name)}</div>
       ${pt.notes ? `<div class="notes">${_esc(pt.notes)}</div>` : ''}
+      <div id="popup-photo-wrap" class="popup-photo-wrap" style="display:none"></div>
       <div class="attr-row"><span class="attr-key">Added by</span><span class="attr-val">${addedBy}</span></div>
       <div class="attr-row"><span class="attr-key">Edited by</span><span class="attr-val">${editedBy}</span></div>
       <div class="popup-btns" style="margin-top:9px">
@@ -160,6 +165,30 @@ const Points = (() => {
     `;
     marker.bindPopup(div, { maxWidth:300 }).openPopup();
     marker.on('popupclose', deselect);
+
+    // Lazy-load photo
+    if (hasPhotoLocal) {
+      _showPhotoInPopup(div, pt.photo);
+    } else {
+      Sync.loadPhoto(pt.id).then(photoData => {
+        if (photoData) _showPhotoInPopup(div, photoData);
+      });
+    }
+  }
+
+  function _showPhotoInPopup(div, photoData) {
+    const wrap = div.querySelector('#popup-photo-wrap');
+    if (!wrap || !photoData) return;
+    wrap.style.display = 'block';
+    wrap.innerHTML = `<img src="${photoData}" class="popup-photo-img" onclick="Points._openPhotoFull(this.src)" title="Click to enlarge"/>`;
+  }
+
+  function _openPhotoFull(src) {
+    const overlay = document.createElement('div');
+    overlay.className = 'photo-fullscreen';
+    overlay.innerHTML = `<img src="${src}"/><div class="photo-close" onclick="this.parentElement.remove()">✕</div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   }
 
   function streetViewAt(lat, lng) { _openStreetView(lat, lng); }
@@ -218,6 +247,15 @@ const Points = (() => {
       <input id="ef-name" type="text" value="${_esc(pt.name||'')}" placeholder="Address or label"/>
       <label>Notes</label>
       <textarea id="ef-notes" placeholder="Optional notes…">${_esc(pt.notes||'')}</textarea>
+      <label>Photo</label>
+      <div class="ef-photo-row">
+        <input type="file" id="ef-photo-input" accept="image/*" capture="environment" style="display:none" onchange="Points._handlePhotoSelect(this)"/>
+        <button type="button" class="btn-photo-upload" onclick="document.getElementById('ef-photo-input').click()">📷 ${pt.photo ? 'Replace' : 'Add'} Photo</button>
+        <span id="ef-photo-status" class="ef-photo-status">${pt.photo ? '✓ Has photo' : ''}</span>
+        ${pt.photo ? '<button type="button" class="btn-photo-remove" onclick="Points._removePhoto()">✕</button>' : ''}
+      </div>
+      <div id="ef-photo-preview" class="ef-photo-preview">${pt.photo ? `<img src="${pt.photo}"/>` : ''}</div>
+      <input type="hidden" id="ef-photo-data" value="__KEEP__"/>
       <div class="popup-btns">
         <button class="btn-save">Save</button>
         ${!isNew?'<button class="btn-delete">Delete</button>':''}
@@ -260,6 +298,8 @@ const Points = (() => {
     }
     Layers.pushUndo(Layers.getAllPoints());
     const pt = { id:ptId, lat, lng, name, notes, addedBy:user, addedAt:now, editedBy:'', editedAt:'' };
+    const photo = _getPhotoValue();
+    if (photo !== undefined) pt.photo = photo;
     Layers.addPoint(newLayerId, pt);
     UI.setActiveLayer(newLayerId);
     Layers.renderLayer(newLayerId, selectedPoint, _onMarkerClick);
@@ -275,7 +315,10 @@ const Points = (() => {
     const user  = typeof Presence !== 'undefined' ? Presence.getCurrentUser() : '';
     const now   = new Date().toLocaleString('en-US',{timeZone:'America/Chicago'});
     Layers.pushUndo(Layers.getAllPoints());
-    Layers.movePoint(origLayerId, newLayerId, ptId, { name, notes, editedBy:user, editedAt:now });
+    const photoVal = _getPhotoValue();
+    const updates = { name, notes, editedBy:user, editedAt:now };
+    if (photoVal !== undefined) updates.photo = photoVal;
+    Layers.movePoint(origLayerId, newLayerId, ptId, updates);
     UI.setActiveLayer(newLayerId);
     Layers.renderLayer(origLayerId, selectedPoint, _onMarkerClick);
     if (newLayerId !== origLayerId) Layers.renderLayer(newLayerId, selectedPoint, _onMarkerClick);
@@ -338,6 +381,52 @@ const Points = (() => {
     return `<span ${id?`id="${id}"`:''} style="display:inline-block;width:${size}px;height:${size}px;background:${def.color};border-radius:${def.shape==='circle'?'50%':'2px'};border:1.5px solid rgba(255,255,255,0.22);flex-shrink:0;vertical-align:middle;margin-right:5px;"></span>`;
   }
 
+  // ── PHOTO HANDLING ─────────────────────────────────────────────────────────
+  function _handlePhotoSelect(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        const photoEl = document.getElementById('ef-photo-data');
+        if (photoEl) photoEl.value = dataUrl;
+        const preview = document.getElementById('ef-photo-preview');
+        if (preview) preview.innerHTML = `<img src="${dataUrl}"/>`;
+        const status = document.getElementById('ef-photo-status');
+        if (status) status.textContent = '✓ Photo ready';
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function _removePhoto() {
+    const photoEl = document.getElementById('ef-photo-data');
+    if (photoEl) photoEl.value = '';
+    const preview = document.getElementById('ef-photo-preview');
+    if (preview) preview.innerHTML = '';
+    const status = document.getElementById('ef-photo-status');
+    if (status) status.textContent = 'Photo removed';
+  }
+
+  function _getPhotoValue() {
+    const el = document.getElementById('ef-photo-data');
+    if (!el) return undefined;
+    if (el.value === '__KEEP__') return undefined; // don't change
+    return el.value || ''; // '' means remove, dataUrl means new photo
+  }
+
   function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   return {
@@ -347,5 +436,6 @@ const Points = (() => {
     openEditPopup, openNewPopup, streetViewAt,
     deletePoint, copySelected, pasteAt, pasteAtCenter,
     renderAll, getMarkerClickHandler,
+    _handlePhotoSelect: _handlePhotoSelect, _removePhoto: _removePhoto, _openPhotoFull: _openPhotoFull,
   };
 })();

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// sync.js — v3.1e — Delta saves to stay under Apps Script URL limit
+// sync.js — v3.3 — Delta saves, lazy photo loader
 // ─────────────────────────────────────────────────────────────────────────────
 const Sync = (() => {
   let lastHash = '';
@@ -112,5 +112,16 @@ const Sync = (() => {
   const addPoint    = savePoint;
   const updatePoint = savePoint;
 
-  return { loadAll, startRefresh, addPoint, updatePoint, savePoint, deletePoint, savePoints, saveAnnotations, sendHeartbeat, startPresence };
+  // ── LAZY PHOTO LOADER ─────────────────────────────────────────────────────
+  async function loadPhoto(ptId) {
+    if (!CONFIG.APPS_SCRIPT_URL || !ptId) return null;
+    try {
+      const payload = JSON.stringify({ action:'getPhoto', ptId });
+      const res = await fetch(`${CONFIG.APPS_SCRIPT_URL}?payload=${encodeURIComponent(payload)}`, { redirect:'follow' });
+      const data = await res.json().catch(() => ({}));
+      return (data && data.photo) ? data.photo : null;
+    } catch(e) { return null; }
+  }
+
+  return { loadAll, startRefresh, addPoint, updatePoint, savePoint, deletePoint, savePoints, saveAnnotations, sendHeartbeat, startPresence, loadPhoto };
 })();

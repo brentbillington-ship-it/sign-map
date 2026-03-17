@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Chaka Signs Map — Google Apps Script Backend v3.1f
+// Chaka Signs Map — Google Apps Script Backend v3.3
 // Deploy: Web App → Execute as Me → Anyone can access
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -9,7 +9,7 @@ const PRESENCE_SHEET    = 'Presence';
 const ANNOTATIONS_SHEET = 'Annotations';
 
 // Column order in Points sheet
-const COLS = ['id','layerId','lat','lng','name','notes','addedBy','addedAt','editedBy','editedAt'];
+const COLS = ['id','layerId','lat','lng','name','notes','addedBy','addedAt','editedBy','editedAt','photo'];
 
 function doGet(e) {
   const params = e.parameter;
@@ -29,6 +29,7 @@ function doGet(e) {
       else if (a === 'saveLayer')   result = saveLayer(payload.layerId, payload.points, payload.append);
       else if (a === 'heartbeat')   result = saveHeartbeat(payload.sessionId, payload.name, payload.ts);
       else if (a === 'saveAnnotations') result = saveAnnotations(payload.annotations);
+      else if (a === 'getPhoto')  result = getPhoto(payload.ptId);
       // Legacy full-save fallback (small datasets only)
       else if (a === 'save')        result = saveAllPoints(payload.points);
       else result = { error: 'Unknown action: ' + a };
@@ -66,9 +67,31 @@ function loadPoints() {
     const { id, layerId, lat, lng } = obj;
     if (!id || !layerId || isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) continue;
     if (!points[layerId]) points[layerId] = [];
-    points[layerId].push({ ...obj, lat: parseFloat(lat), lng: parseFloat(lng) });
+    // Strip photo from main load to keep payload small
+    const pt = { ...obj, lat: parseFloat(lat), lng: parseFloat(lng) };
+    delete pt.photo;
+    points[layerId].push(pt);
   }
   return points;
+}
+
+// ── GET PHOTO FOR A SINGLE POINT ────────────────────────────────────────────
+function getPhoto(ptId) {
+  const ss    = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName(POINTS_SHEET);
+  if (!sheet) return { photo: '' };
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { photo: '' };
+  const hdr = data[0].map(h => String(h).trim());
+  const photoIdx = hdr.indexOf('photo');
+  if (photoIdx < 0) return { photo: '' };
+  const idIdx = hdr.indexOf('id');
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idIdx]) === String(ptId)) {
+      return { photo: String(data[i][photoIdx] || '') };
+    }
+  }
+  return { photo: '' };
 }
 
 // ── DELTA SAVES ───────────────────────────────────────────────────────────────
