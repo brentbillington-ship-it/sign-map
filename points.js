@@ -8,8 +8,9 @@ const Points = (() => {
   let copiedPoint   = null;
   let drawToolActive = false;
   let svMode        = false;
-  let placeMode     = false;  // OFF by default — parcel identify is default
+  let placeMode     = false;
   let onSave        = null;
+  let _markerJustClicked = false;
 
   function init(map, onSaveCallback) {
     mapRef = map;
@@ -19,7 +20,7 @@ const Points = (() => {
       UI.hideCtxMenu();
       if (svMode) { _openStreetView(e.latlng.lat, e.latlng.lng); setSVMode(false); return; }
       if (!placeMode) {
-        // Skip deselect if a marker drag just ended (drag fires a click after dragend)
+        if (_markerJustClicked) { _markerJustClicked = false; return; }
         if (Layers.justDragged()) return;
         if (selectedPoint) { deselect(); mapRef.closePopup(); }
         return;
@@ -131,6 +132,8 @@ const Points = (() => {
   function getCopied()   { return copiedPoint; }
 
   function _onMarkerClick(layerId, pt, marker) {
+    _markerJustClicked = true;
+    setTimeout(() => { _markerJustClicked = false; }, 300);
     select(layerId, pt.id);
     _showViewPopup(layerId, pt, marker);
   }
@@ -240,7 +243,8 @@ const Points = (() => {
         list.style.display = 'none';
       });
     });
-    document.addEventListener('click', () => { list.style.display = 'none'; }, { once: true });
+    // Close dropdown on click outside — use popup container not document to avoid eating map clicks
+    div.addEventListener('click', e => { if (!e.target.closest('#ef-layer-btn') && !e.target.closest('#ef-layer-list')) list.style.display = 'none'; });
 
     return div;
   }
