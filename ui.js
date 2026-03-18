@@ -200,7 +200,6 @@ const UI = (() => {
   }
 
   function _layerRowWrap(def, isCustom=false) {
-    const isCircle = def.shape==='circle';
     const opacity  = Math.round(Layers.getOpacity(def.id)*100);
 
     const wrap = document.createElement('div');
@@ -214,7 +213,7 @@ const UI = (() => {
     row.innerHTML = `
       <span class="drag-handle" title="Drag to reorder">⠿</span>
       <div class="layer-toggle checked" id="tog-${def.id}">✓</div>
-      <div class="layer-icon${isCircle?' circle':''}" style="background:${def.color}"></div>
+      ${_layerIconHtml(def)}
       <span class="layer-name">${_esc(def.name)}</span>
       <span class="layer-count" id="cnt-${def.id}"></span>
       <button class="expand-btn" id="expand-${def.id}" title="Show points" onclick="UI.toggleLayerExpand('${def.id}',event)">▸</button>
@@ -249,8 +248,11 @@ const UI = (() => {
       </div>
       <div class="sp-row"><label>Shape</label>
         <select id="sp-shape-${def.id}">
-          <option value="circle"${def.shape==='circle'?' selected':''}>Circle (small)</option>
-          <option value="square"${def.shape==='square'?' selected':''}>Square (large)</option>
+          <option value="circle"${def.shape==='circle'?' selected':''}>● Circle</option>
+          <option value="square"${def.shape==='square'?' selected':''}>■ Square</option>
+          <option value="diamond"${def.shape==='diamond'?' selected':''}>◆ Diamond</option>
+          <option value="triangle"${def.shape==='triangle'?' selected':''}>▲ Triangle</option>
+          <option value="star"${def.shape==='star'?' selected':''}>★ Star</option>
         </select>
       </div>
       <div class="sp-row"><label>Opacity</label>
@@ -363,7 +365,22 @@ const UI = (() => {
     const color=document.getElementById('alb-color').value;
     const shape=document.getElementById('alb-shape').value;
     const prev=document.getElementById('alb-preview');
-    prev.style.background=color; prev.style.borderRadius=shape==='circle'?'50%':'2px';
+    // Reset styles
+    prev.style.background=color; prev.style.borderRadius='2px'; prev.style.transform='none';
+    prev.style.border='1.5px solid #fff'; prev.textContent='';
+    prev.style.width='18px'; prev.style.height='18px';
+    prev.style.borderLeft=''; prev.style.borderRight=''; prev.style.borderBottom='';
+    if (shape==='circle') prev.style.borderRadius='50%';
+    else if (shape==='diamond') prev.style.transform='rotate(45deg)';
+    else if (shape==='triangle') {
+      prev.style.background='none'; prev.style.width='0'; prev.style.height='0';
+      prev.style.border='none'; prev.style.borderLeft='9px solid transparent';
+      prev.style.borderRight='9px solid transparent'; prev.style.borderBottom='18px solid '+color;
+    } else if (shape==='star') {
+      prev.style.background='none'; prev.style.border='none';
+      prev.textContent='★'; prev.style.color=color; prev.style.fontSize='22px';
+      prev.style.display='flex'; prev.style.alignItems='center'; prev.style.justifyContent='center';
+    }
     document.getElementById('alb-color-hex').textContent=color;
   }
   function confirmAddLayer() {
@@ -593,6 +610,16 @@ const UI = (() => {
     });
     if (!allPts.length) { toast('No visible points'); return; }
     mapRef.fitBounds(L.latLngBounds(allPts), { padding:[40,40], maxZoom:17 });
+  }
+
+  // ── LAYER ICON HTML (supports all shapes) ─────────────────────────────────
+  function _layerIconHtml(def) {
+    const c = def.color;
+    if (def.shape === 'diamond') return `<div class="layer-icon" style="background:${c};transform:rotate(45deg);border-radius:2px"></div>`;
+    if (def.shape === 'triangle') return `<div class="layer-icon layer-icon-tri" style="border-bottom-color:${c}"></div>`;
+    if (def.shape === 'star') return `<div class="layer-icon layer-icon-star" style="color:${c}">★</div>`;
+    if (def.shape === 'circle') return `<div class="layer-icon circle" style="background:${c}"></div>`;
+    return `<div class="layer-icon" style="background:${c}"></div>`;
   }
 
   function _esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

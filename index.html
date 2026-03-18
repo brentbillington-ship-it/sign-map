@@ -179,6 +179,9 @@ body.sidebar-collapsed #collapse-btn{left:0;}
 .drag-handle:active{cursor:grabbing;}
 .layer-icon{width:12px;height:12px;flex-shrink:0;border-radius:2px;border:1.5px solid #fff;}
 .layer-icon.circle{border-radius:50%;}
+.layer-icon-tri{background:none!important;width:0!important;height:0!important;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid;border-top:none;border-radius:0!important;}
+.layer-icon-star{background:none!important;border:none!important;font-size:14px;line-height:12px;display:flex!important;align-items:center;justify-content:center;width:12px!important;height:12px!important;}
+.chaka-star{display:flex;align-items:center;justify-content:center;}
 .layer-name{font-size:10px;flex:1;color:var(--text);}
 .layer-toggle{width:13px;height:13px;border:1px solid var(--border2);border-radius:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;}
 .layer-toggle:hover{border-color:var(--accent);}
@@ -686,7 +689,7 @@ body.sidebar-collapsed #collapse-btn{left:0;}
   <div class="modal-box">
     <h3>Add Custom Layer</h3>
     <div><label>Name</label><input id="alb-name" type="text" placeholder="e.g. Priority Locations"/></div>
-    <div><label>Shape</label><select id="alb-shape" onchange="UI.updateAlbPreview()"><option value="circle">Circle (small)</option><option value="square">Square (large)</option></select></div>
+    <div><label>Shape</label><select id="alb-shape" onchange="UI.updateAlbPreview()"><option value="circle">● Circle</option><option value="square">■ Square</option><option value="diamond">◆ Diamond</option><option value="triangle">▲ Triangle</option><option value="star">★ Star</option></select></div>
     <div><label>Color</label>
       <div class="alb-color-row">
         <input type="color" id="alb-color" value="#e05252" oninput="UI.updateAlbPreview()"/>
@@ -875,9 +878,13 @@ body.sidebar-collapsed #collapse-btn{left:0;}
       const def = Layers.getDef(id);
       const el  = document.getElementById('toolbar-active-layer');
       if (el && def) {
-        const br  = def.shape==='circle'?'50%':'2px';
         const cnt = (Layers.getPoints(id)||[]).length;
-        el.innerHTML = `<span style="display:inline-block;width:10px;height:10px;background:${def.color};border-radius:${br};border:1.5px solid #fff;flex-shrink:0;"></span>&nbsp;${def.name}&nbsp;<span style="color:var(--muted2);font-size:10px">(${cnt})</span>`;
+        let swatch;
+        if (def.shape === 'diamond') swatch = `<span style="display:inline-block;width:10px;height:10px;background:${def.color};border-radius:2px;border:1.5px solid #fff;transform:rotate(45deg);flex-shrink:0;"></span>`;
+        else if (def.shape === 'triangle') swatch = `<span style="display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:10px solid ${def.color};flex-shrink:0;"></span>`;
+        else if (def.shape === 'star') swatch = `<span style="color:${def.color};font-size:14px;line-height:1;flex-shrink:0;">★</span>`;
+        else swatch = `<span style="display:inline-block;width:10px;height:10px;background:${def.color};border-radius:${def.shape==='circle'?'50%':'2px'};border:1.5px solid #fff;flex-shrink:0;"></span>`;
+        el.innerHTML = `${swatch}&nbsp;${def.name}&nbsp;<span style="color:var(--muted2);font-size:10px">(${cnt})</span>`;
       }
     }
 

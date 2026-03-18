@@ -222,9 +222,8 @@ const Points = (() => {
     // Build layer options HTML for custom dropdown
     const layerOpts = Layers.getOrder().filter(id => Layers.getDef(id)).map(id => {
       const d = Layers.getDef(id);
-      const br = d.shape === 'circle' ? '50%' : '2px';
       return `<div class="ef-dd-opt${d.id === layerId ? ' selected' : ''}" data-id="${d.id}" style="display:flex;align-items:center;gap:7px;padding:5px 8px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--border);">
-        <span style="width:11px;height:11px;border-radius:${br};background:${d.color};border:1.5px solid #fff;flex-shrink:0;display:inline-block;"></span>
+        ${_swatchHtml(d, 11)}
         <span>${_esc(d.name)}</span>
       </div>`;
     }).join('');
@@ -378,7 +377,11 @@ const Points = (() => {
 
   function _swatchHtml(def, size, id='') {
     if (!def) return '';
-    return `<span ${id?`id="${id}"`:''} style="display:inline-block;width:${size}px;height:${size}px;background:${def.color};border-radius:${def.shape==='circle'?'50%':'2px'};border:1.5px solid #fff;flex-shrink:0;vertical-align:middle;margin-right:5px;"></span>`;
+    const idAttr = id ? `id="${id}"` : '';
+    if (def.shape === 'diamond') return `<span ${idAttr} style="display:inline-block;width:${size}px;height:${size}px;background:${def.color};border-radius:2px;border:1.5px solid #fff;transform:rotate(45deg);flex-shrink:0;vertical-align:middle;margin-right:5px;"></span>`;
+    if (def.shape === 'triangle') return `<span ${idAttr} style="display:inline-block;width:0;height:0;border-left:${size/2}px solid transparent;border-right:${size/2}px solid transparent;border-bottom:${size}px solid ${def.color};flex-shrink:0;vertical-align:middle;margin-right:5px;"></span>`;
+    if (def.shape === 'star') return `<span ${idAttr} style="display:inline-block;color:${def.color};font-size:${size+2}px;line-height:1;flex-shrink:0;vertical-align:middle;margin-right:5px;">★</span>`;
+    return `<span ${idAttr} style="display:inline-block;width:${size}px;height:${size}px;background:${def.color};border-radius:${def.shape==='circle'?'50%':'2px'};border:1.5px solid #fff;flex-shrink:0;vertical-align:middle;margin-right:5px;"></span>`;
   }
 
   // ── PHOTO HANDLING ─────────────────────────────────────────────────────────

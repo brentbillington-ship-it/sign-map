@@ -200,23 +200,26 @@ const Layers = (() => {
   function makeIcon(layerId, selected) {
     const def = LAYER_DEFS[layerId];
     if (!def) return L.divIcon({ html:'', className:'', iconSize:[10,10] });
-    const isSquare = def.shape === 'square';
-    const s = isSquare ? 16 : 10;
+    const shape = def.shape || 'circle';
+    const s = (shape === 'circle') ? 10 : 16;
     const op = opacityMap[layerId] ?? 1;
-    // Use solid hex color — rgba + alpha borders/shadows render wrong on iOS Safari
     const hex = def.color.replace('#','');
     const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
     const bg = op < 1 ? `rgba(${r},${g},${b},${op})` : def.color;
     const ring = selected
       ? `box-shadow:0 0 0 2px #fff,0 2px 6px #000;`
       : `box-shadow:0 1px 4px #000;`;
-    const html = `<div class="chaka-marker" style="
-      width:${s}px;height:${s}px;
-      background:${bg};
-      border-radius:${isSquare?'2px':'50%'};
-      border:1.5px solid #fff;
-      ${ring}
-    "></div>`;
+    let html;
+    if (shape === 'diamond') {
+      html = `<div class="chaka-marker" style="width:${s}px;height:${s}px;background:${bg};border:1.5px solid #fff;transform:rotate(45deg);border-radius:2px;${ring}"></div>`;
+    } else if (shape === 'triangle') {
+      html = `<div class="chaka-marker" style="width:0;height:0;border-left:${s/2}px solid transparent;border-right:${s/2}px solid transparent;border-bottom:${s}px solid ${bg};filter:drop-shadow(0 1px 3px #000);"></div>`;
+    } else if (shape === 'star') {
+      html = `<div class="chaka-marker chaka-star" style="color:${bg};font-size:${s+2}px;line-height:1;text-shadow:0 0 2px #000;${ring}">★</div>`;
+    } else {
+      // circle or square
+      html = `<div class="chaka-marker" style="width:${s}px;height:${s}px;background:${bg};border-radius:${shape==='circle'?'50%':'2px'};border:1.5px solid #fff;${ring}"></div>`;
+    }
     return L.divIcon({ html, className:'', iconSize:[s,s], iconAnchor:[s/2,s/2], popupAnchor:[0,-s/2-4] });
   }
 

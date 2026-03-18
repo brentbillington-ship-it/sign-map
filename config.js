@@ -4,7 +4,7 @@
 
 const CONFIG = {
 
-  VERSION: 'v3.3',
+  VERSION: 'v3.3a',
 
   MAP_PASSWORD: 'choochoo',
 
